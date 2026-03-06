@@ -101,7 +101,7 @@ export function createSystemPromptHandler(
         const runtimePrompts = prompts.getRuntimePrompts()
         const newPrompt = renderSystemPrompt(
             runtimePrompts,
-            state.manualMode,
+            !!state.manualMode,
             state.isSubAgent && config.experimental.allowSubAgents,
         )
         if (output.system.length > 0) {
@@ -226,6 +226,7 @@ export function createCommandExecuteHandler(
                     throw new Error("__DCP_MANUAL_TRIGGER_BLOCKED__")
                 }
 
+                state.manualMode = "compress-pending"
                 state.pendingManualTrigger = {
                     sessionId: input.sessionID,
                     prompt,

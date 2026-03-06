@@ -66,7 +66,7 @@ export async function handleHelpCommand(ctx: HelpCommandContext): Promise<void> 
     const { client, state, logger, sessionId, messages } = ctx
 
     const { config } = ctx
-    const message = formatHelpMessage(state.manualMode, config)
+    const message = formatHelpMessage(!!state.manualMode, config)
 
     const params = getCurrentParams(state, messages, logger)
     await sendIgnoredMessage(client, sessionId, message, params, logger)

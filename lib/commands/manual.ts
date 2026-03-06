@@ -54,11 +54,11 @@ export async function handleManualToggleCommand(
     const { client, state, logger, sessionId, messages } = ctx
 
     if (modeArg === "on") {
-        state.manualMode = true
+        state.manualMode = "active"
     } else if (modeArg === "off") {
         state.manualMode = false
     } else {
-        state.manualMode = !state.manualMode
+        state.manualMode = state.manualMode ? false : "active"
     }
 
     const params = getCurrentParams(state, messages, logger)

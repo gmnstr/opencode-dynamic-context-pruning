@@ -52,6 +52,12 @@ export function createCompressTool(ctx: ToolContext): ReturnType<typeof tool> {
                 .describe("Compression details: ID boundaries and replacement summary"),
         },
         async execute(args, toolCtx) {
+            if (ctx.state.manualMode && ctx.state.manualMode !== "compress-pending") {
+                throw new Error(
+                    "Manual mode: compress blocked. Do not retry until `<compress triggered manually>` appears in user context.",
+                )
+            }
+
             await toolCtx.ask({
                 permission: "compress",
                 patterns: ["*"],
@@ -149,6 +155,7 @@ export function createCompressTool(ctx: ToolContext): ReturnType<typeof tool> {
                 finalSummaryResult.consumedBlockIds,
             )
 
+            ctx.state.manualMode = ctx.state.manualMode ? "active" : false
             await saveSessionState(ctx.state, ctx.logger)
 
             const params = getCurrentParams(ctx.state, rawMessages, ctx.logger)

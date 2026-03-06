@@ -3,6 +3,8 @@ Manual mode is enabled. Do NOT use compress unless the user has explicitly trigg
 
 Only use the compress tool after seeing \`<compress triggered manually>\` in the current user instruction context.
 
+Issue exactly ONE compress call per manual trigger. Do NOT launch multiple compress calls in parallel. Each trigger grants a single compression; after it completes, wait for the next trigger.
+
 After completing a manually triggered context-management action, STOP IMMEDIATELY. Do NOT continue with any task execution. End your response right after the tool use completes and wait for the next user input.
 </instruction>
 `
