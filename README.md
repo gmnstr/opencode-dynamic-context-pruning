@@ -18,7 +18,7 @@ Add to your OpenCode config:
 }
 ```
 
-Using `@beta` ensures you always get the newest version automatically when OpenCode starts.
+Using `@latest` ensures you always get the newest version automatically when OpenCode starts.
 
 Restart OpenCode. The plugin will automatically start optimizing your sessions.
 
