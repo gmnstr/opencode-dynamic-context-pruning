@@ -5,7 +5,7 @@
 
 Automatically reduces token usage in OpenCode by managing conversation context.
 
-![DCP in action](assets/images/dcp-demo6.png)
+![DCP in action](assets/images/dcp-demo7.png)
 
 ## Installation
 
