@@ -11,7 +11,6 @@ import {
     formatCompressMessageIssues,
     formatCompressMessageResult,
     COMPRESSED_BLOCK_HEADER,
-    normalizeCompressMessageArgs,
     resolveMessageCompressions,
     validateCompressMessageArgs,
     type CompressMessageToolArgs,
@@ -70,9 +69,7 @@ export function createCompressMessageTool(ctx: ToolContext): ReturnType<typeof t
                 metadata: {},
             })
 
-            const compressMessageArgs = normalizeCompressMessageArgs(
-                args as Record<string, unknown>,
-            )
+            const compressMessageArgs = args as CompressMessageToolArgs
             validateCompressMessageArgs(compressMessageArgs)
 
             toolCtx.metadata({

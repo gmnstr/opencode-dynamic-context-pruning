@@ -70,12 +70,6 @@ export function normalizeCompressRangeArgs(args: Record<string, unknown>): Compr
     }
 }
 
-export function normalizeCompressMessageArgs(
-    args: Record<string, unknown>,
-): CompressMessageToolArgs {
-    return args as unknown as CompressMessageToolArgs
-}
-
 export interface BoundaryReference {
     kind: "message" | "compressed-block"
     rawIndex: number
