@@ -13,6 +13,7 @@ import type { BoundaryReference } from "../lib/compress/types"
 function createBlock(blockId: number, body: string): CompressionBlock {
     return {
         blockId,
+        runId: blockId,
         active: true,
         deactivatedByUser: false,
         compressedTokens: 0,

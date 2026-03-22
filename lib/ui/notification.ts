@@ -18,6 +18,7 @@ export const PRUNE_REASON_LABELS: Record<PruneReason, string> = {
 
 interface CompressionNotificationEntry {
     blockId: number
+    runId: number
     summary: string
     summaryTokens: number
 }
@@ -151,16 +152,12 @@ function buildCompressionSummary(
 }
 
 function getCompressionLabel(entries: CompressionNotificationEntry[]): string {
-    if (entries.length === 0) {
+    const runId = entries[0]?.runId
+    if (runId === undefined) {
         return "Compression"
     }
 
-    const firstBlockId = entries[0]?.blockId
-    if (firstBlockId === undefined) {
-        return "Compression"
-    }
-
-    return `Compression #${firstBlockId}`
+    return `Compression #${runId}`
 }
 
 export async function sendCompressNotification(

@@ -1,7 +1,7 @@
 import type { SessionState } from "../state"
 import { parseBoundaryId } from "../message-ids"
 import { isIgnoredUserMessage } from "../messages/utils"
-import { resolveAnchorMessageId, resolveBoundaryIds, resolveRange } from "./search"
+import { resolveAnchorMessageId, resolveBoundaryIds, resolveSelection } from "./search"
 import { COMPRESSED_BLOCK_HEADER } from "./state"
 import type {
     CompressMessageEntry,
@@ -145,8 +145,8 @@ function resolveMessage(
         parsed.ref,
         parsed.ref,
     )
-    const range = resolveRange(searchContext, startReference, endReference)
-    const rawMessageId = range.messageIds[0]
+    const selection = resolveSelection(searchContext, startReference, endReference)
+    const rawMessageId = selection.messageIds[0]
 
     if (!rawMessageId) {
         throw new Error(`messageId ${parsed.ref} could not be resolved to a raw message.`)
@@ -168,7 +168,7 @@ function resolveMessage(
             topic: entry.topic,
             summary: entry.summary,
         },
-        range,
+        selection,
         anchorMessageId: resolveAnchorMessageId(startReference),
     }
 }

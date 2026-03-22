@@ -23,6 +23,7 @@ interface RunContext {
 
 export interface NotificationEntry {
     blockId: number
+    runId: number
     summary: string
     summaryTokens: number
 }

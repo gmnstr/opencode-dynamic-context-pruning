@@ -1,5 +1,5 @@
 import type { CompressionBlock, SessionState } from "../state"
-import { resolveAnchorMessageId, resolveBoundaryIds, resolveRange } from "./search"
+import { resolveAnchorMessageId, resolveBoundaryIds, resolveSelection } from "./search"
 import type {
     BoundaryReference,
     CompressRangeToolArgs,
@@ -56,12 +56,12 @@ export function resolveRanges(
             normalizedEntry.startId,
             normalizedEntry.endId,
         )
-        const range = resolveRange(searchContext, startReference, endReference)
+        const selection = resolveSelection(searchContext, startReference, endReference)
 
         return {
             index,
             entry: normalizedEntry,
-            range,
+            selection,
             anchorMessageId: resolveAnchorMessageId(startReference),
         }
     })
@@ -70,8 +70,8 @@ export function resolveRanges(
 export function validateNonOverlapping(plans: ResolvedRangeCompression[]): void {
     const sortedPlans = [...plans].sort(
         (left, right) =>
-            left.range.startReference.rawIndex - right.range.startReference.rawIndex ||
-            left.range.endReference.rawIndex - right.range.endReference.rawIndex ||
+            left.selection.startReference.rawIndex - right.selection.startReference.rawIndex ||
+            left.selection.endReference.rawIndex - right.selection.endReference.rawIndex ||
             left.index - right.index,
     )
 
@@ -84,7 +84,7 @@ export function validateNonOverlapping(plans: ResolvedRangeCompression[]): void 
             continue
         }
 
-        if (current.range.startReference.rawIndex > previous.range.endReference.rawIndex) {
+        if (current.selection.startReference.rawIndex > previous.selection.endReference.rawIndex) {
             continue
         }
 

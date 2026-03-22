@@ -1,6 +1,6 @@
 import type { CompressionBlock, SessionState } from "../state"
 import { formatBlockRef, formatMessageIdTag } from "../message-ids"
-import type { AppliedCompressionResult, CompressionStateInput, RangeResolution } from "./types"
+import type { AppliedCompressionResult, CompressionStateInput, SelectionResolution } from "./types"
 
 export const COMPRESSED_BLOCK_HEADER = "[Compressed conversation section]"
 
@@ -12,6 +12,17 @@ export function allocateBlockId(state: SessionState): number {
     }
 
     state.prune.messages.nextBlockId = next + 1
+    return next
+}
+
+export function allocateRunId(state: SessionState): number {
+    const next = state.prune.messages.nextRunId
+    if (!Number.isInteger(next) || next < 1) {
+        state.prune.messages.nextRunId = 2
+        return 1
+    }
+
+    state.prune.messages.nextRunId = next + 1
     return next
 }
 
@@ -28,7 +39,7 @@ export function wrapCompressedSummary(blockId: number, summary: string): string 
 export function applyCompressionState(
     state: SessionState,
     input: CompressionStateInput,
-    range: RangeResolution,
+    selection: SelectionResolution,
     anchorMessageId: string,
     blockId: number,
     summary: string,
@@ -38,8 +49,8 @@ export function applyCompressionState(
     const consumed = [...new Set(consumedBlockIds.filter((id) => Number.isInteger(id) && id > 0))]
     const included = [...consumed]
 
-    const effectiveMessageIds = new Set<string>(range.messageIds)
-    const effectiveToolIds = new Set<string>(range.toolIds)
+    const effectiveMessageIds = new Set<string>(selection.messageIds)
+    const effectiveToolIds = new Set<string>(selection.toolIds)
 
     for (const consumedBlockId of consumed) {
         const consumedBlock = messagesState.blocksById.get(consumedBlockId)
@@ -77,10 +88,13 @@ export function applyCompressionState(
     const createdAt = Date.now()
     const block: CompressionBlock = {
         blockId,
+        runId: input.runId,
         active: true,
         deactivatedByUser: false,
         compressedTokens: 0,
+        mode: input.mode,
         topic: input.topic,
+        batchTopic: input.batchTopic,
         startId: input.startId,
         endId: input.endId,
         anchorMessageId,
@@ -147,8 +161,8 @@ export function applyCompressionState(
         }
     }
 
-    for (const messageId of range.messageIds) {
-        const tokenCount = range.messageTokenById.get(messageId) || 0
+    for (const messageId of selection.messageIds) {
+        const tokenCount = selection.messageTokenById.get(messageId) || 0
         const existing = messagesState.byMessageId.get(messageId)
 
         if (!existing) {
@@ -170,7 +184,7 @@ export function applyCompressionState(
     }
 
     for (const messageId of block.effectiveMessageIds) {
-        if (range.messageTokenById.has(messageId)) {
+        if (selection.messageTokenById.has(messageId)) {
             continue
         }
 
@@ -221,7 +235,7 @@ export function applyCompressionState(
 
     return {
         compressedTokens,
-        messageIds: range.messageIds,
+        messageIds: selection.messageIds,
         newlyCompressedMessageIds,
         newlyCompressedToolIds,
     }

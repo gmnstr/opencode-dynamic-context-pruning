@@ -5,7 +5,12 @@ import { MESSAGE_FORMAT_OVERLAY } from "../prompts/internal-overlays"
 import { formatIssues, formatResult, resolveMessages, validateArgs } from "./message-utils"
 import { finalizeSession, prepareSession, type NotificationEntry } from "./pipeline"
 import { appendProtectedTools } from "./protected-content"
-import { allocateBlockId, applyCompressionState, wrapCompressedSummary } from "./state"
+import {
+    allocateBlockId,
+    allocateRunId,
+    applyCompressionState,
+    wrapCompressedSummary,
+} from "./state"
 import type { CompressMessageToolArgs } from "./types"
 
 function buildSchema() {
@@ -68,7 +73,7 @@ export function createCompressMessageTool(ctx: ToolContext): ReturnType<typeof t
                     ctx.state,
                     ctx.config.experimental.allowSubAgents,
                     plan.entry.summary,
-                    plan.range,
+                    plan.selection,
                     searchContext,
                     ctx.config.compress.protectedTools,
                     ctx.config.protectedFilePatterns,
@@ -80,6 +85,8 @@ export function createCompressMessageTool(ctx: ToolContext): ReturnType<typeof t
                 })
             }
 
+            const runId = allocateRunId(ctx.state)
+
             for (const { plan, summaryWithTools } of preparedPlans) {
                 const blockId = allocateBlockId(ctx.state)
                 const storedSummary = wrapCompressedSummary(blockId, summaryWithTools)
@@ -89,11 +96,14 @@ export function createCompressMessageTool(ctx: ToolContext): ReturnType<typeof t
                     ctx.state,
                     {
                         topic: plan.entry.topic,
+                        batchTopic: input.topic,
                         startId: plan.entry.messageId,
                         endId: plan.entry.messageId,
+                        mode: "message",
+                        runId,
                         compressMessageId: toolCtx.messageID,
                     },
-                    plan.range,
+                    plan.selection,
                     plan.anchorMessageId,
                     blockId,
                     storedSummary,
@@ -102,6 +112,7 @@ export function createCompressMessageTool(ctx: ToolContext): ReturnType<typeof t
 
                 notifications.push({
                     blockId,
+                    runId,
                     summary: summaryWithTools,
                     summaryTokens,
                 })

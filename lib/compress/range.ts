@@ -16,6 +16,7 @@ import {
 import {
     COMPRESSED_BLOCK_HEADER,
     allocateBlockId,
+    allocateRunId,
     applyCompressionState,
     wrapCompressedSummary,
 } from "./state"
@@ -70,7 +71,7 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
             const notifications: NotificationEntry[] = []
             const preparedPlans: Array<{
                 entry: (typeof resolvedPlans)[number]["entry"]
-                range: (typeof resolvedPlans)[number]["range"]
+                selection: (typeof resolvedPlans)[number]["selection"]
                 anchorMessageId: string
                 finalSummary: string
                 consumedBlockIds: number[]
@@ -81,9 +82,9 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
                 const parsedPlaceholders = parseBlockPlaceholders(plan.entry.summary)
                 const missingBlockIds = validateSummaryPlaceholders(
                     parsedPlaceholders,
-                    plan.range.requiredBlockIds,
-                    plan.range.startReference,
-                    plan.range.endReference,
+                    plan.selection.requiredBlockIds,
+                    plan.selection.startReference,
+                    plan.selection.endReference,
                     searchContext.summaryByBlockId,
                 )
 
@@ -91,13 +92,13 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
                     plan.entry.summary,
                     parsedPlaceholders,
                     searchContext.summaryByBlockId,
-                    plan.range.startReference,
-                    plan.range.endReference,
+                    plan.selection.startReference,
+                    plan.selection.endReference,
                 )
 
                 const summaryWithUsers = appendProtectedUserMessages(
                     injected.expandedSummary,
-                    plan.range,
+                    plan.selection,
                     searchContext,
                     ctx.state,
                     ctx.config.compress.protectUserMessages,
@@ -108,7 +109,7 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
                     ctx.state,
                     ctx.config.experimental.allowSubAgents,
                     summaryWithUsers,
-                    plan.range,
+                    plan.selection,
                     searchContext,
                     ctx.config.compress.protectedTools,
                     ctx.config.protectedFilePatterns,
@@ -123,12 +124,14 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
 
                 preparedPlans.push({
                     entry: plan.entry,
-                    range: plan.range,
+                    selection: plan.selection,
                     anchorMessageId: plan.anchorMessageId,
                     finalSummary: completedSummary.expandedSummary,
                     consumedBlockIds: completedSummary.consumedBlockIds,
                 })
             }
+
+            const runId = allocateRunId(ctx.state)
 
             for (const preparedPlan of preparedPlans) {
                 const blockId = allocateBlockId(ctx.state)
@@ -139,11 +142,14 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
                     ctx.state,
                     {
                         topic: input.topic,
+                        batchTopic: input.topic,
                         startId: preparedPlan.entry.startId,
                         endId: preparedPlan.entry.endId,
+                        mode: "range",
+                        runId,
                         compressMessageId: toolCtx.messageID,
                     },
-                    preparedPlan.range,
+                    preparedPlan.selection,
                     preparedPlan.anchorMessageId,
                     blockId,
                     storedSummary,
@@ -154,6 +160,7 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
 
                 notifications.push({
                     blockId,
+                    runId,
                     summary: preparedPlan.finalSummary,
                     summaryTokens,
                 })

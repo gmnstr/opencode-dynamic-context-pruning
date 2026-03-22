@@ -1,7 +1,7 @@
 import type { PluginConfig } from "../config"
 import type { Logger } from "../logger"
 import type { PromptStore } from "../prompts/store"
-import type { CompressionBlock, SessionState, WithParts } from "../state"
+import type { CompressionBlock, CompressionMode, SessionState, WithParts } from "../state"
 
 export interface ToolContext {
     client: any
@@ -49,7 +49,7 @@ export interface SearchContext {
     summaryByBlockId: Map<number, CompressionBlock>
 }
 
-export interface RangeResolution {
+export interface SelectionResolution {
     startReference: BoundaryReference
     endReference: BoundaryReference
     messageIds: string[]
@@ -60,14 +60,14 @@ export interface RangeResolution {
 
 export interface ResolvedMessageCompression {
     entry: CompressMessageEntry
-    range: RangeResolution
+    selection: SelectionResolution
     anchorMessageId: string
 }
 
 export interface ResolvedRangeCompression {
     index: number
     entry: CompressRangeEntry
-    range: RangeResolution
+    selection: SelectionResolution
     anchorMessageId: string
 }
 
@@ -97,8 +97,11 @@ export interface AppliedCompressionResult {
 
 export interface CompressionStateInput {
     topic: string
+    batchTopic: string
     startId: string
     endId: string
+    mode: CompressionMode
+    runId: number
     compressMessageId: string
 }
 

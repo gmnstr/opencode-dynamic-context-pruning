@@ -11,11 +11,11 @@ import {
     mergeSubagentResult,
 } from "../subagents/subagent-results"
 import { fetchSessionMessages } from "./search"
-import type { RangeResolution, SearchContext } from "./types"
+import type { SearchContext, SelectionResolution } from "./types"
 
 export function appendProtectedUserMessages(
     summary: string,
-    range: RangeResolution,
+    selection: SelectionResolution,
     searchContext: SearchContext,
     state: SessionState,
     enabled: boolean,
@@ -24,7 +24,7 @@ export function appendProtectedUserMessages(
 
     const userTexts: string[] = []
 
-    for (const messageId of range.messageIds) {
+    for (const messageId of selection.messageIds) {
         const existingCompressionEntry = state.prune.messages.byMessageId.get(messageId)
         if (existingCompressionEntry && existingCompressionEntry.activeBlockIds.length > 0) {
             continue
@@ -58,14 +58,14 @@ export async function appendProtectedTools(
     state: SessionState,
     allowSubAgents: boolean,
     summary: string,
-    range: RangeResolution,
+    selection: SelectionResolution,
     searchContext: SearchContext,
     protectedTools: string[],
     protectedFilePatterns: string[] = [],
 ): Promise<string> {
     const protectedOutputs: string[] = []
 
-    for (const messageId of range.messageIds) {
+    for (const messageId of selection.messageIds) {
         const existingCompressionEntry = state.prune.messages.byMessageId.get(messageId)
         if (existingCompressionEntry && existingCompressionEntry.activeBlockIds.length > 0) {
             continue

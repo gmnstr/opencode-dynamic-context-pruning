@@ -2,7 +2,7 @@ import type { SessionState, WithParts } from "../state"
 import { formatBlockRef, parseBoundaryId } from "../message-ids"
 import { isIgnoredUserMessage } from "../messages/utils"
 import { countAllMessageTokens } from "../strategies/utils"
-import type { BoundaryReference, RangeResolution, SearchContext } from "./types"
+import type { BoundaryReference, SearchContext, SelectionResolution } from "./types"
 
 export async function fetchSessionMessages(client: any, sessionId: string): Promise<WithParts[]> {
     const response = await client.session.messages({
@@ -106,11 +106,11 @@ export function resolveBoundaryIds(
     return { startReference, endReference }
 }
 
-export function resolveRange(
+export function resolveSelection(
     context: SearchContext,
     startReference: BoundaryReference,
     endReference: BoundaryReference,
-): RangeResolution {
+): SelectionResolution {
     const startRawIndex = startReference.rawIndex
     const endRawIndex = endReference.rawIndex
     const messageIds: string[] = []
@@ -153,10 +153,10 @@ export function resolveRange(
         }
     }
 
-    const rangeMessageIdSet = new Set(messageIds)
-    const summariesInRange: Array<{ blockId: number; rawIndex: number }> = []
+    const selectedMessageIds = new Set(messageIds)
+    const summariesInSelection: Array<{ blockId: number; rawIndex: number }> = []
     for (const summary of context.summaryByBlockId.values()) {
-        if (!rangeMessageIdSet.has(summary.anchorMessageId)) {
+        if (!selectedMessageIds.has(summary.anchorMessageId)) {
             continue
         }
 
@@ -165,14 +165,14 @@ export function resolveRange(
             continue
         }
 
-        summariesInRange.push({
+        summariesInSelection.push({
             blockId: summary.blockId,
             rawIndex: anchorIndex,
         })
     }
 
-    summariesInRange.sort((a, b) => a.rawIndex - b.rawIndex || a.blockId - b.blockId)
-    for (const summary of summariesInRange) {
+    summariesInSelection.sort((a, b) => a.rawIndex - b.rawIndex || a.blockId - b.blockId)
+    for (const summary of summariesInSelection) {
         if (requiredBlockSeen.has(summary.blockId)) {
             continue
         }
