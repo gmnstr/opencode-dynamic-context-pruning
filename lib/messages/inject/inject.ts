@@ -12,6 +12,7 @@ import {
     createSyntheticTextPart,
     findLastToolPart,
     isIgnoredUserMessage,
+    isProtectedUserMessage,
 } from "../utils"
 import {
     addAnchor,
@@ -157,11 +158,15 @@ export const injectMessageIds = (
             continue
         }
 
+        const isBlockedMessage = isProtectedUserMessage(config, message)
         const priority =
-            config.compress.mode === "message"
+            config.compress.mode === "message" && !isBlockedMessage
                 ? compressionPriorities?.get(message.info.id)?.priority
                 : undefined
-        const tag = formatMessageIdTag(messageRef, priority ? { priority } : undefined)
+        const tag = formatMessageIdTag(
+            isBlockedMessage ? "BLOCKED" : messageRef,
+            priority ? { priority } : undefined,
+        )
 
         if (appendToTextPart(message, tag)) {
             continue

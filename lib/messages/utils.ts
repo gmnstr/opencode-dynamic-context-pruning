@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto"
+import type { PluginConfig } from "../config"
 import { isMessageCompacted } from "../shared-utils"
 import type { SessionState, WithParts } from "../state"
 import type { UserMessage } from "@opencode-ai/sdk/v2"
 
 const SUMMARY_ID_HASH_LENGTH = 16
-const DCP_MESSAGE_ID_TAG_REGEX = /<dcp-message-id(?=[\s>])[^>]*>(?:m\d+|b\d+)<\/dcp-message-id>/g
+const DCP_MESSAGE_ID_TAG_REGEX =
+    /<dcp-message-id(?=[\s>])[^>]*>(?:m\d+|b\d+|BLOCKED)<\/dcp-message-id>/g
+const DCP_BLOCK_ID_TAG_REGEX = /(<dcp-message-id(?=[\s>])[^>]*>)b\d+(<\/dcp-message-id>)/g
 const DCP_SYSTEM_REMINDER_REGEX =
     /<dcp-system-reminder(?=[\s>])[^>]*>[\s\S]*?<\/dcp-system-reminder>/g
 
@@ -155,6 +158,19 @@ export const isIgnoredUserMessage = (message: WithParts): boolean => {
     }
 
     return true
+}
+
+export function isProtectedUserMessage(config: PluginConfig, message: WithParts): boolean {
+    return (
+        config.compress.mode === "message" &&
+        config.compress.protectUserMessages &&
+        message.info.role === "user" &&
+        !isIgnoredUserMessage(message)
+    )
+}
+
+export const replaceBlockIdsWithBlocked = (text: string): string => {
+    return text.replace(DCP_BLOCK_ID_TAG_REGEX, "$1BLOCKED$2")
 }
 
 export const stripHallucinationsFromString = (text: string): string => {

@@ -1,6 +1,7 @@
+import type { PluginConfig } from "../config"
 import type { SessionState } from "../state"
 import { parseBoundaryId } from "../message-ids"
-import { isIgnoredUserMessage } from "../messages/utils"
+import { isIgnoredUserMessage, isProtectedUserMessage } from "../messages/utils"
 import { resolveAnchorMessageId, resolveBoundaryIds, resolveSelection } from "./search"
 import { COMPRESSED_BLOCK_HEADER } from "./state"
 import type {
@@ -66,6 +67,7 @@ export function resolveMessages(
     args: CompressMessageToolArgs,
     searchContext: SearchContext,
     state: SessionState,
+    config: PluginConfig,
 ): ResolvedMessageCompressionsResult {
     const issues: string[] = []
     const plans: ResolvedMessageCompression[] = []
@@ -88,6 +90,7 @@ export function resolveMessages(
                 },
                 searchContext,
                 state,
+                config,
             )
             seenMessageIds.add(plan.entry.messageId)
             plans.push(plan)
@@ -111,7 +114,14 @@ function resolveMessage(
     entry: CompressMessageEntry,
     searchContext: SearchContext,
     state: SessionState,
+    config: PluginConfig,
 ): ResolvedMessageCompression {
+    if (entry.messageId.toUpperCase() === "BLOCKED") {
+        throw new SoftIssue(
+            "messageId BLOCKED refers to a protected message and cannot be compressed.",
+        )
+    }
+
     const parsed = parseBoundaryId(entry.messageId)
 
     if (!parsed) {
@@ -122,7 +132,7 @@ function resolveMessage(
 
     if (parsed.kind === "compressed-block") {
         throw new SoftIssue(
-            `messageId ${entry.messageId} is invalid in message mode. Block IDs like bN are not allowed; use an mNNNN message ID instead.`,
+            `messageId ${entry.messageId} is invalid here. Block IDs like bN are not allowed; use an mNNNN message ID instead.`,
         )
     }
 
@@ -155,6 +165,12 @@ function resolveMessage(
     const message = searchContext.rawMessagesById.get(rawMessageId)
     if (!message) {
         throw new Error(`messageId ${parsed.ref} is not available in the current conversation.`)
+    }
+
+    if (isProtectedUserMessage(config, message)) {
+        throw new SoftIssue(
+            `messageId ${parsed.ref} refers to a protected message and cannot be compressed.`,
+        )
     }
 
     const pruneEntry = state.prune.messages.byMessageId.get(rawMessageId)

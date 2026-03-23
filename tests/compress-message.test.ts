@@ -332,6 +332,68 @@ test("compress message mode rejects compressed block ids", async () => {
     )
 })
 
+test("compress message mode skips protected user message references", async () => {
+    const sessionID = `ses_message_compress_protected_user_${Date.now()}`
+    const rawMessages = buildMessages(sessionID)
+    const state = createSessionState()
+    const logger = new Logger(false)
+    const config = buildConfig()
+    config.compress.protectUserMessages = true
+
+    const tool = createCompressMessageTool({
+        client: {
+            session: {
+                messages: async () => ({ data: rawMessages }),
+                get: async () => ({ data: { parentID: null } }),
+            },
+        },
+        state,
+        logger,
+        config,
+        prompts: {
+            reload() {},
+            getRuntimePrompts() {
+                return { compressMessage: "", compressRange: "" }
+            },
+        },
+    } as any)
+
+    const result = await tool.execute(
+        {
+            topic: "Protected user entries",
+            content: [
+                {
+                    messageId: "BLOCKED",
+                    topic: "Protected marker",
+                    summary: "Should be skipped.",
+                },
+                {
+                    messageId: "m0001",
+                    topic: "Hidden protected ref",
+                    summary: "Should also be skipped.",
+                },
+                {
+                    messageId: "m0002",
+                    topic: "Valid note",
+                    summary: "Captured the assistant's code-path findings.",
+                },
+            ],
+        },
+        {
+            ask: async () => {},
+            metadata: () => {},
+            sessionID,
+            messageID: "msg-compress-message-protected-user",
+        },
+    )
+
+    assert.equal(state.prune.messages.blocksById.size, 1)
+    assert.match(result, /^Compressed 1 message into \[Compressed conversation section\]\./)
+    assert.match(result, /Skipped 2 issues:/)
+    assert.match(result, /messageId BLOCKED refers to a protected message/)
+    assert.match(result, /messageId m0001 refers to a protected message/)
+})
+
 test("compress message mode allows messages containing compress tool parts", async () => {
     const sessionID = `ses_message_compress_tool_${Date.now()}`
     const rawMessages = buildMessages(sessionID)

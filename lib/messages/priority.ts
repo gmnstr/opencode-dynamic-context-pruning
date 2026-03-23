@@ -2,7 +2,7 @@ import type { PluginConfig } from "../config"
 import { countAllMessageTokens } from "../strategies/utils"
 import { isMessageCompacted } from "../shared-utils"
 import type { SessionState, WithParts } from "../state"
-import { isIgnoredUserMessage } from "./utils"
+import { isIgnoredUserMessage, isProtectedUserMessage } from "./utils"
 
 const MEDIUM_PRIORITY_MIN_TOKENS = 500
 const HIGH_PRIORITY_MIN_TOKENS = 5000
@@ -29,6 +29,10 @@ export function buildPriorityMap(
 
     for (const message of messages) {
         if (message.info.role === "user" && isIgnoredUserMessage(message)) {
+            continue
+        }
+
+        if (isProtectedUserMessage(config, message)) {
             continue
         }
 

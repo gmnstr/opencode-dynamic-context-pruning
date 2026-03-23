@@ -2,9 +2,11 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import type { PluginConfig } from "../lib/config"
 import { createTextCompleteHandler } from "../lib/hooks"
+import { Logger } from "../lib/logger"
 import { assignMessageRefs } from "../lib/message-ids"
 import { injectMessageIds } from "../lib/messages/inject/inject"
 import { applyAnchoredNudges } from "../lib/messages/inject/utils"
+import { prune } from "../lib/messages/prune"
 import { buildPriorityMap } from "../lib/messages/priority"
 import { stripHallucinationsFromString } from "../lib/messages/utils"
 import { createSessionState, type WithParts } from "../lib/state"
@@ -180,6 +182,34 @@ test("injectMessageIds appends priority tags to existing text parts in message m
     assert.equal((assistantTool as any).state.output, "task output body")
 })
 
+test("injectMessageIds marks protected user messages as BLOCKED without priority in message mode", () => {
+    const sessionID = "ses_message_blocked_user_tags"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, repeatedWord("investigate", 6000), 1),
+        buildMessage("msg-assistant-1", "assistant", sessionID, "Short follow-up note.", 2),
+    ]
+    const state = createSessionState()
+    const config = buildConfig()
+    config.compress.protectUserMessages = true
+
+    assignMessageRefs(state, messages)
+    const compressionPriorities = buildPriorityMap(config, state, messages)
+
+    injectMessageIds(state, config, messages, compressionPriorities)
+
+    const userText = messages[0]?.parts[0]
+    const assistantText = messages[1]?.parts[0]
+
+    assert.equal(userText?.type, "text")
+    assert.equal(assistantText?.type, "text")
+    assert.match((userText as any).text, /\n\n<dcp-message-id>BLOCKED<\/dcp-message-id>/)
+    assert.doesNotMatch((userText as any).text, /priority=/)
+    assert.match(
+        (assistantText as any).text,
+        /\n\n<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
+    )
+})
+
 test("message-mode nudges append to existing text parts and list only earlier visible high-priority message IDs", () => {
     const sessionID = "ses_message_priority_nudges"
     const messages: WithParts[] = [
@@ -228,6 +258,43 @@ test("message-mode nudges append to existing text parts and list only earlier vi
     assert.doesNotMatch((injectedNudge as any).text, /m0004/)
 })
 
+test("message-mode nudges exclude protected user messages from priority guidance", () => {
+    const sessionID = "ses_message_blocked_priority_nudges"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, repeatedWord("alpha", 6000), 1),
+        buildMessage("msg-assistant-1", "assistant", sessionID, repeatedWord("beta", 6000), 2),
+        buildMessage("msg-user-2", "user", sessionID, repeatedWord("gamma", 6000), 3),
+    ]
+    const state = createSessionState()
+    const config = buildConfig()
+    config.compress.protectUserMessages = true
+
+    assignMessageRefs(state, messages)
+    state.nudges.contextLimitAnchors.add("msg-user-2")
+
+    const compressionPriorities = buildPriorityMap(config, state, messages)
+
+    applyAnchoredNudges(
+        state,
+        config,
+        messages,
+        {
+            system: "",
+            compressRange: "",
+            compressMessage: "",
+            contextLimitNudge: "<dcp-system-reminder>Base context nudge</dcp-system-reminder>",
+            turnNudge: "<dcp-system-reminder>Base turn nudge</dcp-system-reminder>",
+            iterationNudge: "<dcp-system-reminder>Base iteration nudge</dcp-system-reminder>",
+        },
+        compressionPriorities,
+    )
+
+    const injectedNudge = messages[2]?.parts[0]
+    assert.equal(injectedNudge?.type, "text")
+    assert.match((injectedNudge as any).text, /High-priority message IDs before this point: m0002/)
+    assert.doesNotMatch((injectedNudge as any).text, /m0001/)
+})
+
 test("range-mode nudges append to existing text parts before tool outputs", () => {
     const sessionID = "ses_range_nudge_injection"
     const messages: WithParts[] = [
@@ -274,9 +341,108 @@ test("range-mode nudges append to existing text parts before tool outputs", () =
     assert.equal((toolOutput as any).state.output, "task output body")
 })
 
+test("message-mode rendered compressed summaries mark block IDs as BLOCKED", () => {
+    const sessionID = "ses_message_blocked_blocks"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Original request", 1),
+        buildMessage("msg-assistant-1", "assistant", sessionID, "Follow-up", 2),
+    ]
+    const state = createSessionState()
+    const config = buildConfig("message")
+    const logger = new Logger(false)
+
+    state.prune.messages.byMessageId.set("msg-user-1", {
+        tokenCount: 20,
+        allBlockIds: [7],
+        activeBlockIds: [7],
+    })
+    state.prune.messages.blocksById.set(7, {
+        blockId: 7,
+        runId: 1,
+        active: true,
+        deactivatedByUser: false,
+        compressedTokens: 0,
+        mode: "range",
+        topic: "Earlier notes",
+        batchTopic: "Earlier notes",
+        startId: "m0001",
+        endId: "m0001",
+        anchorMessageId: "msg-user-1",
+        compressMessageId: "msg-origin",
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: ["msg-user-1"],
+        directToolIds: [],
+        effectiveMessageIds: ["msg-user-1"],
+        effectiveToolIds: [],
+        createdAt: 1,
+        summary:
+            "[Compressed conversation section]\nEarlier summary\n\n<dcp-message-id>b7</dcp-message-id>",
+    })
+    state.prune.messages.activeBlockIds.add(7)
+    state.prune.messages.activeByAnchorMessageId.set("msg-user-1", 7)
+
+    prune(state, logger, config, messages)
+
+    const summaryText = (messages[0]?.parts[0] as any)?.text || ""
+    assert.match(summaryText, /<dcp-message-id>BLOCKED<\/dcp-message-id>/)
+    assert.doesNotMatch(summaryText, /<dcp-message-id>b7<\/dcp-message-id>/)
+})
+
+test("range-mode rendered compressed summaries keep block IDs", () => {
+    const sessionID = "ses_range_visible_blocks"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Original request", 1),
+        buildMessage("msg-assistant-1", "assistant", sessionID, "Follow-up", 2),
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+    const logger = new Logger(false)
+
+    state.prune.messages.byMessageId.set("msg-user-1", {
+        tokenCount: 20,
+        allBlockIds: [7],
+        activeBlockIds: [7],
+    })
+    state.prune.messages.blocksById.set(7, {
+        blockId: 7,
+        runId: 1,
+        active: true,
+        deactivatedByUser: false,
+        compressedTokens: 0,
+        mode: "range",
+        topic: "Earlier notes",
+        batchTopic: "Earlier notes",
+        startId: "m0001",
+        endId: "m0001",
+        anchorMessageId: "msg-user-1",
+        compressMessageId: "msg-origin",
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: ["msg-user-1"],
+        directToolIds: [],
+        effectiveMessageIds: ["msg-user-1"],
+        effectiveToolIds: [],
+        createdAt: 1,
+        summary:
+            "[Compressed conversation section]\nEarlier summary\n\n<dcp-message-id>b7</dcp-message-id>",
+    })
+    state.prune.messages.activeBlockIds.add(7)
+    state.prune.messages.activeByAnchorMessageId.set("msg-user-1", 7)
+
+    prune(state, logger, config, messages)
+
+    const summaryText = (messages[0]?.parts[0] as any)?.text || ""
+    assert.match(summaryText, /<dcp-message-id>b7<\/dcp-message-id>/)
+    assert.doesNotMatch(summaryText, /<dcp-message-id>BLOCKED<\/dcp-message-id>/)
+})
+
 test("hallucination stripping removes exact metadata tags and preserves lookalikes", async () => {
     const text =
         'alpha<dcp-message-id priority="high">m0007</dcp-message-id>' +
+        "<dcp-message-id>BLOCKED</dcp-message-id>" +
         '<dcp-message-id-extra priority="high">m0008</dcp-message-id-extra>' +
         '<dcp-system-reminder kind="nudge">remove this</dcp-system-reminder>' +
         "<dcp-system-reminder-extra>keep this</dcp-system-reminder-extra>" +

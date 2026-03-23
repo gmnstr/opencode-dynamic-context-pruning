@@ -54,7 +54,12 @@ export function createCompressMessageTool(ctx: ToolContext): ReturnType<typeof t
                 toolCtx,
                 `Compress Message: ${input.topic}`,
             )
-            const { plans, skippedIssues } = resolveMessages(input, searchContext, ctx.state)
+            const { plans, skippedIssues } = resolveMessages(
+                input,
+                searchContext,
+                ctx.state,
+                ctx.config,
+            )
 
             if (plans.length === 0 && skippedIssues.length > 0) {
                 throw new Error(formatIssues(skippedIssues))
