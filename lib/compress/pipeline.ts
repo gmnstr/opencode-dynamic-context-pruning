@@ -86,9 +86,10 @@ export async function finalizeSession(
     await saveSessionState(ctx.state, ctx.logger)
 
     const params = getCurrentParams(ctx.state, rawMessages, ctx.logger)
-    const sessionMessageIds = rawMessages
-        .filter((msg) => !isIgnoredUserMessage(msg))
-        .map((msg) => msg.info.id)
+    const totalSessionTokens = getCurrentTokenUsage(ctx.state, rawMessages)
+    const sessionMessages = rawMessages.filter(
+        (msg) => !(msg.info.role === "user" && isIgnoredUserMessage(msg)),
+    )
 
     await sendCompressNotification(
         ctx.client,
@@ -98,7 +99,8 @@ export async function finalizeSession(
         toolCtx.sessionID,
         entries,
         batchTopic,
-        sessionMessageIds,
+        totalSessionTokens,
+        sessionMessages,
         params,
     )
 }
