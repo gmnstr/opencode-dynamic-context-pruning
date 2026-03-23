@@ -7,6 +7,7 @@ import type { CompressionPriorityMap } from "../priority"
 import { compressPermission, getLastUserMessage } from "../../shared-utils"
 import { saveSessionState } from "../../state/persistence"
 import {
+    appendToTextPart,
     appendIdToTool,
     createSyntheticTextPart,
     findLastToolPart,
@@ -161,6 +162,10 @@ export const injectMessageIds = (
                 ? compressionPriorities?.get(message.info.id)?.priority
                 : undefined
         const tag = formatMessageIdTag(messageRef, priority ? { priority } : undefined)
+
+        if (appendToTextPart(message, tag)) {
+            continue
+        }
 
         if (message.info.role === "user") {
             message.parts.push(createSyntheticTextPart(message, tag))

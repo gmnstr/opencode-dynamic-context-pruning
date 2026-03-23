@@ -8,7 +8,7 @@ import {
     type MessagePriority,
     listPriorityRefsBeforeIndex,
 } from "../priority"
-import { createSyntheticTextPart, isIgnoredUserMessage } from "../utils"
+import { appendToTextPart, createSyntheticTextPart, isIgnoredUserMessage } from "../utils"
 import { getLastUserMessage } from "../../shared-utils"
 import { getCurrentTokenUsage } from "../../strategies/utils"
 
@@ -192,20 +192,20 @@ export function buildCompressedBlockGuidance(state: SessionState): string {
     ].join("\n")
 }
 
-function appendGuidanceToDcpTag(hintText: string, guidance: string): string {
+function appendGuidanceToDcpTag(nudgeText: string, guidance: string): string {
     if (!guidance.trim()) {
-        return hintText
+        return nudgeText
     }
 
     const closeTag = "</dcp-system-reminder>"
-    const closeTagIndex = hintText.lastIndexOf(closeTag)
+    const closeTagIndex = nudgeText.lastIndexOf(closeTag)
 
     if (closeTagIndex === -1) {
-        return hintText
+        return nudgeText
     }
 
-    const beforeClose = hintText.slice(0, closeTagIndex).trimEnd()
-    const afterClose = hintText.slice(closeTagIndex)
+    const beforeClose = nudgeText.slice(0, closeTagIndex).trimEnd()
+    const afterClose = nudgeText.slice(closeTagIndex)
     return `${beforeClose}\n\n${guidance}\n${afterClose}`
 }
 
@@ -225,13 +225,17 @@ function buildMessagePriorityGuidance(
     return renderMessagePriorityGuidance(priorityLabel, refs)
 }
 
-function injectAnchoredNudge(message: WithParts, hintText: string): void {
-    if (!hintText.trim()) {
+function injectAnchoredNudge(message: WithParts, nudgeText: string): void {
+    if (!nudgeText.trim()) {
+        return
+    }
+
+    if (appendToTextPart(message, nudgeText)) {
         return
     }
 
     if (message.info.role === "user") {
-        message.parts.push(createSyntheticTextPart(message, hintText))
+        message.parts.push(createSyntheticTextPart(message, nudgeText))
         return
     }
 
@@ -239,7 +243,7 @@ function injectAnchoredNudge(message: WithParts, hintText: string): void {
         return
     }
 
-    const syntheticPart = createSyntheticTextPart(message, hintText)
+    const syntheticPart = createSyntheticTextPart(message, nudgeText)
     const firstToolIndex = message.parts.findIndex((p) => p.type === "tool")
     if (firstToolIndex === -1) {
         message.parts.push(syntheticPart)
@@ -291,23 +295,23 @@ function collectTurnNudgeAnchors(
 function applyRangeModeAnchoredNudge(
     anchorMessageIds: Set<string>,
     messages: WithParts[],
-    basePrompt: string,
+    baseNudgeText: string,
     compressedBlockGuidance: string,
 ): void {
-    const hintText = appendGuidanceToDcpTag(basePrompt, compressedBlockGuidance)
-    if (!hintText.trim()) {
+    const nudgeText = appendGuidanceToDcpTag(baseNudgeText, compressedBlockGuidance)
+    if (!nudgeText.trim()) {
         return
     }
 
     for (const { message } of collectAnchoredMessages(anchorMessageIds, messages)) {
-        injectAnchoredNudge(message, hintText)
+        injectAnchoredNudge(message, nudgeText)
     }
 }
 
 function applyMessageModeAnchoredNudge(
     anchorMessageIds: Set<string>,
     messages: WithParts[],
-    basePrompt: string,
+    baseNudgeText: string,
     compressionPriorities?: CompressionPriorityMap,
 ): void {
     for (const { message, index } of collectAnchoredMessages(anchorMessageIds, messages)) {
@@ -317,8 +321,8 @@ function applyMessageModeAnchoredNudge(
             index,
             MESSAGE_MODE_NUDGE_PRIORITY,
         )
-        const hintText = appendGuidanceToDcpTag(basePrompt, priorityGuidance)
-        injectAnchoredNudge(message, hintText)
+        const nudgeText = appendGuidanceToDcpTag(baseNudgeText, priorityGuidance)
+        injectAnchoredNudge(message, nudgeText)
     }
 }
 

@@ -67,6 +67,35 @@ export const createSyntheticTextPart = (
 
 type MessagePart = WithParts["parts"][number]
 type ToolPart = Extract<MessagePart, { type: "tool" }>
+type TextPart = Extract<MessagePart, { type: "text" }>
+
+const findLastTextPart = (message: WithParts): TextPart | null => {
+    for (let i = message.parts.length - 1; i >= 0; i--) {
+        const part = message.parts[i]
+        if (part.type === "text") {
+            return part
+        }
+    }
+
+    return null
+}
+
+export const appendToTextPart = (message: WithParts, injection: string): boolean => {
+    const textPart = findLastTextPart(message)
+    if (!textPart || typeof textPart.text !== "string") {
+        return false
+    }
+
+    const normalizedInjection = injection.replace(/^\n+/, "")
+    if (!normalizedInjection.trim()) {
+        return false
+    }
+
+    const baseText = textPart.text.replace(/\n*$/, "")
+    textPart.text =
+        baseText.length > 0 ? `${baseText}\n\n${normalizedInjection}` : normalizedInjection
+    return true
+}
 
 export const appendIdToTool = (part: ToolPart, tag: string): boolean => {
     if (part.type !== "tool") {
