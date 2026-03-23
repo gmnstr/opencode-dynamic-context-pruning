@@ -168,11 +168,11 @@ export const injectMessageIds = (
             priority ? { priority } : undefined,
         )
 
-        if (appendToTextPart(message, tag)) {
-            continue
-        }
-
         if (message.info.role === "user") {
+            if (appendToTextPart(message, tag)) {
+                continue
+            }
+
             message.parts.push(createSyntheticTextPart(message, tag))
             continue
         }
@@ -183,6 +183,10 @@ export const injectMessageIds = (
 
         const lastToolPart = findLastToolPart(message)
         if (lastToolPart && appendIdToTool(lastToolPart, tag)) {
+            continue
+        }
+
+        if (appendToTextPart(message, tag)) {
             continue
         }
 

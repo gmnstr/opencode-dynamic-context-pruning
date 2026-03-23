@@ -130,7 +130,7 @@ function repeatedWord(word: string, count: number): string {
     return Array.from({ length: count }, () => word).join(" ")
 }
 
-test("injectMessageIds appends priority tags to existing text parts in message mode", () => {
+test("injectMessageIds prefers assistant tool outputs over text parts in message mode", () => {
     const sessionID = "ses_message_priority_tags"
     const messages: WithParts[] = [
         buildMessage("msg-user-1", "user", sessionID, repeatedWord("investigate", 6000), 1),
@@ -175,11 +175,11 @@ test("injectMessageIds appends priority tags to existing text parts in message m
         (userText as any).text,
         /\n\n<dcp-message-id priority="high">m0001<\/dcp-message-id>/,
     )
+    assert.equal((assistantText as any).text, "Short follow-up note.")
     assert.match(
-        (assistantText as any).text,
-        /\n\n<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
+        (assistantTool as any).state.output,
+        /<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
     )
-    assert.equal((assistantTool as any).state.output, "task output body")
 })
 
 test("injectMessageIds marks protected user messages as BLOCKED without priority in message mode", () => {
