@@ -81,23 +81,16 @@ export function estimateTokensBatch(texts: string[]): number {
 export function extractToolContent(part: any): string[] {
     const contents: string[] = []
 
-    if (part.tool === "question") {
-        const questions = part.state?.input?.questions
-        if (questions !== undefined) {
-            const content = typeof questions === "string" ? questions : JSON.stringify(questions)
-            contents.push(content)
-        }
+    if (part?.type !== "tool") {
         return contents
     }
 
-    if (part.tool === "edit" || part.tool === "write") {
-        if (part.state?.input) {
-            const inputContent =
-                typeof part.state.input === "string"
-                    ? part.state.input
-                    : JSON.stringify(part.state.input)
-            contents.push(inputContent)
-        }
+    if (part.state?.input !== undefined) {
+        const inputContent =
+            typeof part.state.input === "string"
+                ? part.state.input
+                : JSON.stringify(part.state.input)
+        contents.push(inputContent)
     }
 
     if (part.state?.status === "completed" && part.state?.output) {
