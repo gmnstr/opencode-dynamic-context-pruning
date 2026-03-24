@@ -72,6 +72,24 @@ type MessagePart = WithParts["parts"][number]
 type ToolPart = Extract<MessagePart, { type: "tool" }>
 type TextPart = Extract<MessagePart, { type: "text" }>
 
+export const appendToTextPart = (part: TextPart, injection: string): boolean => {
+    if (typeof part.text !== "string") {
+        return false
+    }
+
+    const normalizedInjection = injection.replace(/^\n+/, "")
+    if (!normalizedInjection.trim()) {
+        return false
+    }
+    if (part.text.includes(normalizedInjection)) {
+        return true
+    }
+
+    const baseText = part.text.replace(/\n*$/, "")
+    part.text = baseText.length > 0 ? `${baseText}\n\n${normalizedInjection}` : normalizedInjection
+    return true
+}
+
 const findLastTextPart = (message: WithParts): TextPart | null => {
     for (let i = message.parts.length - 1; i >= 0; i--) {
         const part = message.parts[i]
@@ -83,27 +101,16 @@ const findLastTextPart = (message: WithParts): TextPart | null => {
     return null
 }
 
-export const appendToTextPart = (message: WithParts, injection: string): boolean => {
+export const appendToLastTextPart = (message: WithParts, injection: string): boolean => {
     const textPart = findLastTextPart(message)
-    if (!textPart || typeof textPart.text !== "string") {
+    if (!textPart) {
         return false
     }
 
-    const normalizedInjection = injection.replace(/^\n+/, "")
-    if (!normalizedInjection.trim()) {
-        return false
-    }
-
-    const baseText = textPart.text.replace(/\n*$/, "")
-    textPart.text =
-        baseText.length > 0 ? `${baseText}\n\n${normalizedInjection}` : normalizedInjection
-    return true
+    return appendToTextPart(textPart, injection)
 }
 
-export const appendIdToTool = (part: ToolPart, tag: string): boolean => {
-    if (part.type !== "tool") {
-        return false
-    }
+export const appendToToolPart = (part: ToolPart, tag: string): boolean => {
     if (part.state?.status !== "completed" || typeof part.state.output !== "string") {
         return false
     }
@@ -113,17 +120,6 @@ export const appendIdToTool = (part: ToolPart, tag: string): boolean => {
 
     part.state.output = `${part.state.output}${tag}`
     return true
-}
-
-export const findLastToolPart = (message: WithParts): ToolPart | null => {
-    for (let i = message.parts.length - 1; i >= 0; i--) {
-        const part = message.parts[i]
-        if (part.type === "tool") {
-            return part
-        }
-    }
-
-    return null
 }
 
 export function buildToolIdList(state: SessionState, messages: WithParts[]): string[] {

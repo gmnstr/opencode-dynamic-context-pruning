@@ -8,9 +8,8 @@ import { compressPermission, getLastUserMessage } from "../../shared-utils"
 import { saveSessionState } from "../../state/persistence"
 import {
     appendToTextPart,
-    appendIdToTool,
+    appendToToolPart,
     createSyntheticTextPart,
-    findLastToolPart,
     isIgnoredUserMessage,
     isProtectedUserMessage,
 } from "../utils"
@@ -169,7 +168,14 @@ export const injectMessageIds = (
         )
 
         if (message.info.role === "user") {
-            if (appendToTextPart(message, tag)) {
+            let injected = false
+            for (const part of message.parts) {
+                if (part.type === "text") {
+                    injected = appendToTextPart(part, tag) || injected
+                }
+            }
+
+            if (injected) {
                 continue
             }
 
@@ -181,12 +187,16 @@ export const injectMessageIds = (
             continue
         }
 
-        const lastToolPart = findLastToolPart(message)
-        if (lastToolPart && appendIdToTool(lastToolPart, tag)) {
-            continue
+        let injected = false
+        for (const part of message.parts) {
+            if (part.type === "text") {
+                injected = appendToTextPart(part, tag) || injected
+            } else if (part.type === "tool") {
+                injected = appendToToolPart(part, tag) || injected
+            }
         }
 
-        if (appendToTextPart(message, tag)) {
+        if (injected) {
             continue
         }
 

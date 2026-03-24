@@ -8,7 +8,7 @@ import {
     type MessagePriority,
     listPriorityRefsBeforeIndex,
 } from "../priority"
-import { appendToTextPart, createSyntheticTextPart, isIgnoredUserMessage } from "../utils"
+import { appendToLastTextPart, createSyntheticTextPart, isIgnoredUserMessage } from "../utils"
 import { getLastUserMessage } from "../../shared-utils"
 import { getCurrentTokenUsage } from "../../strategies/utils"
 
@@ -230,7 +230,7 @@ function injectAnchoredNudge(message: WithParts, nudgeText: string): void {
         return
     }
 
-    if (appendToTextPart(message, nudgeText)) {
+    if (appendToLastTextPart(message, nudgeText)) {
         return
     }
 

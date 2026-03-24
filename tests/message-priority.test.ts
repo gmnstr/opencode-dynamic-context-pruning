@@ -130,10 +130,31 @@ function repeatedWord(word: string, count: number): string {
     return Array.from({ length: count }, () => word).join(" ")
 }
 
-test("injectMessageIds prefers assistant tool outputs over text parts in message mode", () => {
+test("injectMessageIds tags every text part and tool output in message mode", () => {
     const sessionID = "ses_message_priority_tags"
     const messages: WithParts[] = [
-        buildMessage("msg-user-1", "user", sessionID, repeatedWord("investigate", 6000), 1),
+        {
+            info: {
+                id: "msg-user-1",
+                role: "user",
+                sessionID,
+                agent: "assistant",
+                model: {
+                    providerID: "anthropic",
+                    modelID: "claude-test",
+                },
+                time: { created: 1 },
+            } as WithParts["info"],
+            parts: [
+                textPart(
+                    "msg-user-1",
+                    sessionID,
+                    "msg-user-1-part-1",
+                    repeatedWord("investigate", 6000),
+                ),
+                textPart("msg-user-1", sessionID, "msg-user-1-part-2", "Trailing note."),
+            ],
+        },
         {
             info: {
                 id: "msg-assistant-1",
@@ -146,10 +167,23 @@ test("injectMessageIds prefers assistant tool outputs over text parts in message
                 textPart(
                     "msg-assistant-1",
                     sessionID,
-                    "msg-assistant-1-part",
+                    "msg-assistant-1-part-1",
                     "Short follow-up note.",
                 ),
                 toolPart("msg-assistant-1", sessionID, "call-task-1", "task", "task output body"),
+                textPart(
+                    "msg-assistant-1",
+                    sessionID,
+                    "msg-assistant-1-part-2",
+                    "Second text chunk.",
+                ),
+                toolPart(
+                    "msg-assistant-1",
+                    sessionID,
+                    "call-task-2",
+                    "bash",
+                    "second tool output body",
+                ),
             ],
         },
     ]
@@ -161,31 +195,73 @@ test("injectMessageIds prefers assistant tool outputs over text parts in message
 
     injectMessageIds(state, config, messages, compressionPriorities)
 
-    assert.equal(messages[0]?.parts.length, 1)
-    assert.equal(messages[1]?.parts.length, 2)
+    assert.equal(messages[0]?.parts.length, 2)
+    assert.equal(messages[1]?.parts.length, 4)
 
-    const userText = messages[0]?.parts[0]
-    const assistantText = messages[1]?.parts[0]
-    const assistantTool = messages[1]?.parts[1]
+    const userTextOne = messages[0]?.parts[0]
+    const userTextTwo = messages[0]?.parts[1]
+    const assistantTextOne = messages[1]?.parts[0]
+    const assistantToolOne = messages[1]?.parts[1]
+    const assistantTextTwo = messages[1]?.parts[2]
+    const assistantToolTwo = messages[1]?.parts[3]
 
-    assert.equal(userText?.type, "text")
-    assert.equal(assistantText?.type, "text")
-    assert.equal(assistantTool?.type, "tool")
+    assert.equal(userTextOne?.type, "text")
+    assert.equal(userTextTwo?.type, "text")
+    assert.equal(assistantTextOne?.type, "text")
+    assert.equal(assistantToolOne?.type, "tool")
+    assert.equal(assistantTextTwo?.type, "text")
+    assert.equal(assistantToolTwo?.type, "tool")
     assert.match(
-        (userText as any).text,
+        (userTextOne as any).text,
         /\n\n<dcp-message-id priority="high">m0001<\/dcp-message-id>/,
     )
-    assert.equal((assistantText as any).text, "Short follow-up note.")
     assert.match(
-        (assistantTool as any).state.output,
+        (userTextTwo as any).text,
+        /\n\n<dcp-message-id priority="high">m0001<\/dcp-message-id>/,
+    )
+    assert.match(
+        (assistantTextOne as any).text,
+        /\n\n<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
+    )
+    assert.match(
+        (assistantToolOne as any).state.output,
+        /<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
+    )
+    assert.match(
+        (assistantTextTwo as any).text,
+        /\n\n<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
+    )
+    assert.match(
+        (assistantToolTwo as any).state.output,
         /<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
     )
 })
 
-test("injectMessageIds marks protected user messages as BLOCKED without priority in message mode", () => {
+test("injectMessageIds marks every protected user text part as BLOCKED in message mode", () => {
     const sessionID = "ses_message_blocked_user_tags"
     const messages: WithParts[] = [
-        buildMessage("msg-user-1", "user", sessionID, repeatedWord("investigate", 6000), 1),
+        {
+            info: {
+                id: "msg-user-1",
+                role: "user",
+                sessionID,
+                agent: "assistant",
+                model: {
+                    providerID: "anthropic",
+                    modelID: "claude-test",
+                },
+                time: { created: 1 },
+            } as WithParts["info"],
+            parts: [
+                textPart(
+                    "msg-user-1",
+                    sessionID,
+                    "msg-user-1-part-1",
+                    repeatedWord("investigate", 6000),
+                ),
+                textPart("msg-user-1", sessionID, "msg-user-1-part-2", "Trailing note."),
+            ],
+        },
         buildMessage("msg-assistant-1", "assistant", sessionID, "Short follow-up note.", 2),
     ]
     const state = createSessionState()
@@ -197,17 +273,64 @@ test("injectMessageIds marks protected user messages as BLOCKED without priority
 
     injectMessageIds(state, config, messages, compressionPriorities)
 
-    const userText = messages[0]?.parts[0]
+    const userTextOne = messages[0]?.parts[0]
+    const userTextTwo = messages[0]?.parts[1]
     const assistantText = messages[1]?.parts[0]
 
-    assert.equal(userText?.type, "text")
+    assert.equal(userTextOne?.type, "text")
+    assert.equal(userTextTwo?.type, "text")
     assert.equal(assistantText?.type, "text")
-    assert.match((userText as any).text, /\n\n<dcp-message-id>BLOCKED<\/dcp-message-id>/)
-    assert.doesNotMatch((userText as any).text, /priority=/)
+    assert.match((userTextOne as any).text, /\n\n<dcp-message-id>BLOCKED<\/dcp-message-id>/)
+    assert.match((userTextTwo as any).text, /\n\n<dcp-message-id>BLOCKED<\/dcp-message-id>/)
+    assert.doesNotMatch((userTextOne as any).text, /priority=/)
+    assert.doesNotMatch((userTextTwo as any).text, /priority=/)
     assert.match(
         (assistantText as any).text,
         /\n\n<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
     )
+})
+
+test("injectMessageIds tags every text part and tool output in range mode", () => {
+    const sessionID = "ses_range_message_id_tags"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, repeatedWord("investigate", 6000), 1),
+        {
+            info: {
+                id: "msg-assistant-1",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [
+                textPart("msg-assistant-1", sessionID, "msg-assistant-1-part-1", "First chunk."),
+                toolPart("msg-assistant-1", sessionID, "call-task-range-1", "task", "first output"),
+                textPart("msg-assistant-1", sessionID, "msg-assistant-1-part-2", "Second chunk."),
+                toolPart(
+                    "msg-assistant-1",
+                    sessionID,
+                    "call-task-range-2",
+                    "bash",
+                    "second output",
+                ),
+            ],
+        },
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    injectMessageIds(state, config, messages)
+
+    const assistantTextOne = messages[1]?.parts[0]
+    const assistantToolOne = messages[1]?.parts[1]
+    const assistantTextTwo = messages[1]?.parts[2]
+    const assistantToolTwo = messages[1]?.parts[3]
+
+    assert.match((assistantTextOne as any).text, /\n\n<dcp-message-id>m0002<\/dcp-message-id>/)
+    assert.match((assistantToolOne as any).state.output, /<dcp-message-id>m0002<\/dcp-message-id>/)
+    assert.match((assistantTextTwo as any).text, /\n\n<dcp-message-id>m0002<\/dcp-message-id>/)
+    assert.match((assistantToolTwo as any).state.output, /<dcp-message-id>m0002<\/dcp-message-id>/)
 })
 
 test("message-mode nudges append to existing text parts and list only earlier visible high-priority message IDs", () => {
