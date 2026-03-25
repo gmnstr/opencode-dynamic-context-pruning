@@ -471,25 +471,29 @@ export const createSidebarTopSlot = (
     api: DcpTuiApi,
     names: DcpRouteNames,
     logger: Logger,
-): TuiSlotPlugin => ({
-    id: names.slot,
-    slots: {
-        sidebar_top(
-            ctx: { theme: { current: Record<string, unknown> } },
-            value: { session_id: string },
-        ) {
-            const palette = createMemo(() =>
-                getPalette(ctx.theme.current as Record<string, unknown>),
-            )
-            return (
-                <SidebarContext
-                    api={api}
-                    names={names}
-                    palette={palette()}
-                    sessionID={() => value.session_id}
-                    logger={logger}
-                />
-            )
+): TuiSlotPlugin => {
+    const renderSidebar = (
+        ctx: { theme: { current: Record<string, unknown> } },
+        value: { session_id: string },
+    ) => {
+        const palette = createMemo(() => getPalette(ctx.theme.current as Record<string, unknown>))
+        return (
+            <SidebarContext
+                api={api}
+                names={names}
+                palette={palette()}
+                sessionID={() => value.session_id}
+                logger={logger}
+            />
+        )
+    }
+
+    return {
+        id: names.slot,
+        order: 90,
+        slots: {
+            sidebar_content: renderSidebar,
+            sidebar_top: renderSidebar,
         },
-    },
-})
+    }
+}
