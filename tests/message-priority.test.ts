@@ -611,25 +611,32 @@ test("range-mode rendered compressed summaries keep block IDs", () => {
     assert.doesNotMatch(summaryText, /<dcp-message-id>BLOCKED<\/dcp-message-id>/)
 })
 
-test("hallucination stripping removes exact metadata tags and preserves lookalikes", async () => {
+test("hallucination stripping removes all dcp-prefixed XML tags including variants", async () => {
     const text =
-        'alpha<dcp-message-id priority="high">m0007</dcp-message-id>' +
-        "<dcp-message-id>BLOCKED</dcp-message-id>" +
+        "alpha" +
+        '<dcp-message-id priority="low">m0008</dcp-message-id>' +
         '<dcp-message-id-extra priority="high">m0008</dcp-message-id-extra>' +
-        '<dcp-system-reminder kind="nudge">remove this</dcp-system-reminder>' +
-        "<dcp-system-reminder-extra>keep this</dcp-system-reminder-extra>" +
+        "<dcp-system-reminder>strip this</dcp-system-reminder>" +
+        "<dcp-system-reminder-extra>strip this too</dcp-system-reminder-extra>" +
         "omega"
 
-    assert.equal(
-        stripHallucinationsFromString(text),
-        'alpha<dcp-message-id-extra priority="high">m0008</dcp-message-id-extra><dcp-system-reminder-extra>keep this</dcp-system-reminder-extra>omega',
-    )
+    assert.equal(stripHallucinationsFromString(text), "alphaomega")
 
     const handler = createTextCompleteHandler()
     const output = { text }
     await handler({ sessionID: "session", messageID: "message", partID: "part" }, output)
+    assert.equal(output.text, "alphaomega")
+})
+
+test("hallucination stripping removes colon and underscore dcp tag variants", async () => {
     assert.equal(
-        output.text,
-        'alpha<dcp-message-id-extra priority="high">m0008</dcp-message-id-extra><dcp-system-reminder-extra>keep this</dcp-system-reminder-extra>omega',
+        stripHallucinationsFromString("before<dcp:message_id>m0074</dcp:message_id>after"),
+        "beforeafter",
+    )
+    assert.equal(
+        stripHallucinationsFromString(
+            'start<dcp-function_calls><invoke name="Bash"></invoke></dcp-function_calls>end',
+        ),
+        "startend",
     )
 })
