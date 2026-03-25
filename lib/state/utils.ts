@@ -7,6 +7,7 @@ import type {
 } from "./types"
 import { isMessageCompacted, messageHasCompress } from "../shared-utils"
 import { isIgnoredUserMessage } from "../messages/utils"
+import { countTokens } from "../strategies/utils"
 
 interface PersistedPruneMessagesState {
     byMessageId?: Record<string, PrunedMessageEntry>
@@ -161,6 +162,12 @@ export function loadPruneMessagesState(
                     Number.isFinite(block.compressedTokens)
                         ? Math.max(0, block.compressedTokens)
                         : 0,
+                summaryTokens:
+                    typeof block.summaryTokens === "number" && Number.isFinite(block.summaryTokens)
+                        ? Math.max(0, block.summaryTokens)
+                        : typeof block.summary === "string"
+                          ? countTokens(block.summary)
+                          : 0,
                 mode: block.mode === "range" || block.mode === "message" ? block.mode : undefined,
                 topic: typeof block.topic === "string" ? block.topic : "",
                 batchTopic:

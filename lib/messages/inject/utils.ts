@@ -119,6 +119,21 @@ function resolveContextTokenLimit(
     return parseLimitValue(globalLimit)
 }
 
+function getActiveSummaryTokenUsage(state: SessionState): number {
+    let total = 0
+
+    for (const blockId of state.prune.messages.activeBlockIds) {
+        const block = state.prune.messages.blocksById.get(blockId)
+        if (!block || !block.active) {
+            continue
+        }
+
+        total += block.summaryTokens
+    }
+
+    return total
+}
+
 export function isContextOverLimits(
     config: PluginConfig,
     state: SessionState,
@@ -126,7 +141,20 @@ export function isContextOverLimits(
     modelId: string | undefined,
     messages: WithParts[],
 ) {
-    const maxContextLimit = resolveContextTokenLimit(config, state, providerId, modelId, "max")
+    const summaryTokenExtension = config.compress.summaryBuffer
+        ? getActiveSummaryTokenUsage(state)
+        : 0
+    const resolvedMaxContextLimit = resolveContextTokenLimit(
+        config,
+        state,
+        providerId,
+        modelId,
+        "max",
+    )
+    const maxContextLimit =
+        resolvedMaxContextLimit === undefined
+            ? undefined
+            : resolvedMaxContextLimit + summaryTokenExtension
     const minContextLimit = resolveContextTokenLimit(config, state, providerId, modelId, "min")
     const currentTokens = getCurrentTokenUsage(state, messages)
 

@@ -92,6 +92,7 @@ export function applyCompressionState(
         active: true,
         deactivatedByUser: false,
         compressedTokens: 0,
+        summaryTokens: input.summaryTokens,
         mode: input.mode,
         topic: input.topic,
         batchTopic: input.batchTopic,

@@ -35,6 +35,7 @@ export interface CompressionBlock {
     active: boolean
     deactivatedByUser: boolean
     compressedTokens: number
+    summaryTokens: number
     mode?: CompressionMode
     topic: string
     batchTopic?: string

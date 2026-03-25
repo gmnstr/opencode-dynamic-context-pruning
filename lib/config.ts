@@ -16,6 +16,7 @@ export interface CompressConfig {
     mode: CompressMode
     permission: Permission
     showCompression: boolean
+    summaryBuffer: boolean
     maxContextLimit: number | `${number}%`
     minContextLimit: number | `${number}%`
     modelMaxLimits?: Record<string, number | `${number}%`>
@@ -111,6 +112,7 @@ export const VALID_CONFIG_KEYS = new Set([
     "compress.mode",
     "compress.permission",
     "compress.showCompression",
+    "compress.summaryBuffer",
     "compress.maxContextLimit",
     "compress.minContextLimit",
     "compress.modelMaxLimits",
@@ -350,6 +352,17 @@ export function validateConfigTypes(config: Record<string, any>): ValidationErro
                     key: "compress.mode",
                     expected: '"range" | "message"',
                     actual: JSON.stringify(compress.mode),
+                })
+            }
+
+            if (
+                compress.summaryBuffer !== undefined &&
+                typeof compress.summaryBuffer !== "boolean"
+            ) {
+                errors.push({
+                    key: "compress.summaryBuffer",
+                    expected: "boolean",
+                    actual: typeof compress.summaryBuffer,
                 })
             }
 
@@ -650,7 +663,8 @@ const defaultConfig: PluginConfig = {
         mode: "range",
         permission: "allow",
         showCompression: false,
-        maxContextLimit: 150000,
+        summaryBuffer: true,
+        maxContextLimit: 100000,
         minContextLimit: 50000,
         nudgeFrequency: 5,
         iterationNudgeThreshold: 15,
@@ -812,6 +826,7 @@ function mergeCompress(
         mode: override.mode ?? base.mode,
         permission: override.permission ?? base.permission,
         showCompression: override.showCompression ?? base.showCompression,
+        summaryBuffer: override.summaryBuffer ?? base.summaryBuffer,
         maxContextLimit: override.maxContextLimit ?? base.maxContextLimit,
         minContextLimit: override.minContextLimit ?? base.minContextLimit,
         modelMaxLimits: override.modelMaxLimits ?? base.modelMaxLimits,

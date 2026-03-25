@@ -17,6 +17,7 @@ function createBlock(blockId: number, body: string): CompressionBlock {
         active: true,
         deactivatedByUser: false,
         compressedTokens: 0,
+        summaryTokens: 0,
         topic: `Block ${blockId}`,
         startId: "m0001",
         endId: "m0002",

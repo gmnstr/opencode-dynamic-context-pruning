@@ -32,8 +32,8 @@ Compress is a tool exposed to your model that replaces closed, stale conversatio
 
 DCP supports two compression modes:
 
-- `range` mode compresses a contiguous span of conversation into one or more reusable block summaries.
-- `message` mode is experimental and compresses individual raw messages independently, letting the model manage context much more surgically around closed work.
+- `range` mode compresses contiguous spans of conversation into one or more summaries.
+- `message` mode (experimental) compresses individual raw messages independently, letting the model manage context much more surgically.
 
 In `range` mode, when a new compression overlaps an earlier one, the earlier summary is nested inside the new one so information is preserved through layers of compression rather than diluted away. In both modes, protected tool outputs (such as subagents and skills) and protected file patterns are kept in compression summaries, ensuring that the most important information is never lost. You can also enable `protectUserMessages` to preserve your messages verbatim during compression, though note that large prompts (e.g. copy-pasting log files in the prompt) will then never be compressed away.
 
@@ -54,6 +54,9 @@ DCP uses its own config file, searched in order:
 3. Project: `.opencode/dcp.jsonc` (or `dcp.json`) in your project's `.opencode` directory
 
 Each level overrides the previous, so project settings take priority over global. Restart OpenCode after making config changes.
+
+> [!NOTE]
+> If you use models with smaller context windows, such as GitHub Copilot models or local models, lower `compress.minContextLimit` and `compress.maxContextLimit` in your configuration to match the available context.
 
 > [!IMPORTANT]
 > Defaults are applied automatically. Expand this if you want to review or override settings.
@@ -111,10 +114,12 @@ Each level overrides the previous, so project settings take priority over global
         "permission": "allow",
         // Show compression content in a chat notification
         "showCompression": false,
+        // Let active summary tokens extend the effective maxContextLimit
+        "summaryBuffer": true,
         // Soft upper threshold: above this, DCP keeps injecting strong
         // compression nudges (based on nudgeFrequency), so compression is
         // much more likely. Accepts: number or "X%" of model context window.
-        "maxContextLimit": 150000,
+        "maxContextLimit": 100000,
         // Soft lower threshold for reminder nudges: below this, turn/iteration
         // reminders are off (compression less likely). At/above this, reminders
         // are on. Accepts: number or "X%" of model context window.
@@ -200,9 +205,6 @@ When enabled, managed defaults are written to `~/.config/opencode/dcp-prompts/de
 To customize behavior, add a file with the same name under an overrides directory and edit it as plain text.
 
 To reset an override, delete the matching file from your overrides directory.
-
-> [!NOTE]
-> `compress-range` and `compress-message` prompt changes apply after plugin restart because tool descriptions are registered at startup.
 
 ### Protected Tools
 

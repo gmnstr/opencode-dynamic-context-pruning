@@ -145,9 +145,14 @@
                     "default": false,
                     "description": "Show compression summaries in notifications"
                 },
+                "summaryBuffer": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "When enabled, active summary tokens extend the effective maxContextLimit used for context-limit nudges."
+                },
                 "maxContextLimit": {
                     "description": "Soft upper threshold. Above this, DCP keeps sending strong compression nudges (based on nudgeFrequency), so the model is pushed to compress. Accepts number or \"X%\" of the model context window.",
-                    "default": 150000,
+                    "default": 100000,
                     "oneOf": [
                         {
                             "type": "number"
@@ -237,7 +242,8 @@
                 "mode": "range",
                 "permission": "allow",
                 "showCompression": false,
-                "maxContextLimit": 150000,
+                "summaryBuffer": true,
+                "maxContextLimit": 100000,
                 "minContextLimit": 50000,
                 "nudgeFrequency": 5,
                 "iterationNudgeThreshold": 15,
