@@ -219,6 +219,9 @@ declare module "@opencode-ai/plugin/tui" {
         sidebar_top: {
             session_id: string
         }
+        sidebar_content: {
+            session_id: string
+        }
         sidebar_title: {
             session_id: string
             title: string
