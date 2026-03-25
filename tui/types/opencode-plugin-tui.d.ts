@@ -5,12 +5,25 @@ declare module "@opencode-ai/plugin/tui" {
         LspStatus,
         McpStatus,
         Todo,
+        Message,
+        Part,
+        Provider,
+        PermissionRequest,
+        QuestionRequest,
+        SessionStatus,
+        Workspace,
+        Config as SdkConfig,
     } from "@opencode-ai/sdk/v2"
-    import type { CliRenderer, ParsedKey, Plugin as CorePlugin, SlotMode } from "@opentui/core"
-    import type { JSX } from "@opentui/solid"
+
+    import type { CliRenderer, ParsedKey, RGBA } from "@opentui/core"
+    import type { JSX, SolidPlugin } from "@opentui/solid"
     import type { Plugin as ServerPlugin } from "@opencode-ai/plugin"
 
-    export type { CliRenderer, SlotMode }
+    // PluginOptions = Record<string, unknown> — not yet exported by installed @opencode-ai/plugin
+    type PluginOptions = Record<string, unknown>
+
+    export type { CliRenderer }
+    export type { SlotMode } from "@opentui/core"
 
     export type TuiRouteCurrent =
         | {
@@ -133,8 +146,64 @@ declare module "@opencode-ai/plugin/tui" {
         duration?: number
     }
 
+    export type TuiThemeCurrent = {
+        readonly primary: RGBA
+        readonly secondary: RGBA
+        readonly accent: RGBA
+        readonly error: RGBA
+        readonly warning: RGBA
+        readonly success: RGBA
+        readonly info: RGBA
+        readonly text: RGBA
+        readonly textMuted: RGBA
+        readonly selectedListItemText: RGBA
+        readonly background: RGBA
+        readonly backgroundPanel: RGBA
+        readonly backgroundElement: RGBA
+        readonly backgroundMenu: RGBA
+        readonly border: RGBA
+        readonly borderActive: RGBA
+        readonly borderSubtle: RGBA
+        readonly diffAdded: RGBA
+        readonly diffRemoved: RGBA
+        readonly diffContext: RGBA
+        readonly diffHunkHeader: RGBA
+        readonly diffHighlightAdded: RGBA
+        readonly diffHighlightRemoved: RGBA
+        readonly diffAddedBg: RGBA
+        readonly diffRemovedBg: RGBA
+        readonly diffContextBg: RGBA
+        readonly diffLineNumber: RGBA
+        readonly diffAddedLineNumberBg: RGBA
+        readonly diffRemovedLineNumberBg: RGBA
+        readonly markdownText: RGBA
+        readonly markdownHeading: RGBA
+        readonly markdownLink: RGBA
+        readonly markdownLinkText: RGBA
+        readonly markdownCode: RGBA
+        readonly markdownBlockQuote: RGBA
+        readonly markdownEmph: RGBA
+        readonly markdownStrong: RGBA
+        readonly markdownHorizontalRule: RGBA
+        readonly markdownListItem: RGBA
+        readonly markdownListEnumeration: RGBA
+        readonly markdownImage: RGBA
+        readonly markdownImageText: RGBA
+        readonly markdownCodeBlock: RGBA
+        readonly syntaxComment: RGBA
+        readonly syntaxKeyword: RGBA
+        readonly syntaxFunction: RGBA
+        readonly syntaxVariable: RGBA
+        readonly syntaxString: RGBA
+        readonly syntaxNumber: RGBA
+        readonly syntaxType: RGBA
+        readonly syntaxOperator: RGBA
+        readonly syntaxPunctuation: RGBA
+        readonly thinkingOpacity: number
+    }
+
     export type TuiTheme = {
-        readonly current: Record<string, unknown>
+        readonly current: TuiThemeCurrent
         readonly selected: string
         has: (name: string) => boolean
         set: (name: string) => boolean
@@ -150,15 +219,52 @@ declare module "@opencode-ai/plugin/tui" {
     }
 
     export type TuiState = {
+        readonly ready: boolean
+        readonly config: SdkConfig
+        readonly provider: ReadonlyArray<Provider>
+        readonly path: {
+            state: string
+            config: string
+            worktree: string
+            directory: string
+        }
+        readonly vcs: { branch?: string } | undefined
+        readonly workspace: {
+            list: () => ReadonlyArray<Workspace>
+            get: (workspaceID: string) => Workspace | undefined
+        }
         session: {
+            count: () => number
             diff: (sessionID: string) => ReadonlyArray<TuiSidebarFileItem>
             todo: (sessionID: string) => ReadonlyArray<TuiSidebarTodoItem>
+            messages: (sessionID: string) => ReadonlyArray<Message>
+            status: (sessionID: string) => SessionStatus | undefined
+            permission: (sessionID: string) => ReadonlyArray<PermissionRequest>
+            question: (sessionID: string) => ReadonlyArray<QuestionRequest>
         }
+        part: (messageID: string) => ReadonlyArray<Part>
         lsp: () => ReadonlyArray<TuiSidebarLspItem>
         mcp: () => ReadonlyArray<TuiSidebarMcpItem>
     }
 
+    // Inlined: Pick<PluginConfig, "$schema" | "theme" | "keybinds" | "plugin"> & NonNullable<PluginConfig["tui"]>
+    // PluginConfig (opencode.json schema) is not re-exported by @opencode-ai/plugin at installed version.
+    type TuiConfigView = Record<string, unknown>
+
+    type Frozen<Value> = Value extends (...args: never[]) => unknown
+        ? Value
+        : Value extends ReadonlyArray<infer Item>
+          ? ReadonlyArray<Frozen<Item>>
+          : Value extends object
+            ? { readonly [Key in keyof Value]: Frozen<Value[Key]> }
+            : Value
+
+    export type TuiApp = {
+        readonly version: string
+    }
+
     export type TuiApi = {
+        app: TuiApp
         command: {
             register: (cb: () => TuiCommand[]) => () => void
             trigger: (value: string) => void
@@ -182,6 +288,7 @@ declare module "@opencode-ai/plugin/tui" {
             print: (key: string) => string
             create: (defaults: TuiKeybindMap, overrides?: Record<string, unknown>) => TuiKeybindSet
         }
+        readonly tuiConfig: Frozen<TuiConfigView>
         kv: TuiKV
         state: TuiState
         theme: TuiTheme
@@ -206,77 +313,17 @@ declare module "@opencode-ai/plugin/tui" {
     export type TuiSlotMap = {
         app: {}
         home_logo: {}
-        home_tips: {
-            show_tips: boolean
-            tips_hidden: boolean
-            first_time_user: boolean
-        }
-        home_below_tips: {
-            show_tips: boolean
-            tips_hidden: boolean
-            first_time_user: boolean
-        }
-        sidebar_top: {
-            session_id: string
-        }
-        sidebar_content: {
-            session_id: string
-        }
+        home_bottom: {}
         sidebar_title: {
             session_id: string
             title: string
             share_url?: string
         }
-        sidebar_context: {
+        sidebar_content: {
             session_id: string
-            tokens: number
-            percentage: number | null
-            cost: number
         }
-        sidebar_mcp: {
+        sidebar_footer: {
             session_id: string
-            items: TuiSidebarMcpItem[]
-            connected: number
-            errors: number
-        }
-        sidebar_lsp: {
-            session_id: string
-            items: TuiSidebarLspItem[]
-            disabled: boolean
-        }
-        sidebar_todo: {
-            session_id: string
-            items: TuiSidebarTodoItem[]
-        }
-        sidebar_files: {
-            session_id: string
-            items: TuiSidebarFileItem[]
-        }
-        sidebar_getting_started: {
-            session_id: string
-            show_getting_started: boolean
-            has_providers: boolean
-            dismissed: boolean
-        }
-        sidebar_directory: {
-            session_id: string
-            directory: string
-            directory_parent: string
-            directory_name: string
-        }
-        sidebar_version: {
-            session_id: string
-            version: string
-        }
-        sidebar_bottom: {
-            session_id: string
-            directory: string
-            directory_parent: string
-            directory_name: string
-            version: string
-            show_getting_started: boolean
-            has_providers: boolean
-            dismissed: boolean
         }
     }
 
@@ -284,10 +331,12 @@ declare module "@opencode-ai/plugin/tui" {
         theme: TuiTheme
     }
 
-    export type TuiSlotPlugin = CorePlugin<JSX.Element, TuiSlotMap, TuiSlotContext>
+    export type TuiSlotPlugin = Omit<SolidPlugin<TuiSlotMap, TuiSlotContext>, "id"> & {
+        id?: never
+    }
 
     export type TuiSlots = {
-        register: (plugin: TuiSlotPlugin) => () => void
+        register: (plugin: TuiSlotPlugin) => string
     }
 
     export type TuiEventBus = {
@@ -325,8 +374,15 @@ declare module "@opencode-ai/plugin/tui" {
         state: TuiPluginState
     }
 
+    export type TuiWorkspace = {
+        current: () => string | undefined
+        set: (workspaceID?: string) => void
+    }
+
     export type TuiHostPluginApi<Renderer = CliRenderer> = TuiApi & {
         client: ReturnType<typeof createOpencodeClientV2>
+        scopedClient: (workspaceID?: string) => ReturnType<typeof createOpencodeClientV2>
+        workspace: TuiWorkspace
         event: TuiEventBus
         renderer: Renderer
     }
@@ -338,13 +394,12 @@ declare module "@opencode-ai/plugin/tui" {
 
     export type TuiPlugin<Renderer = CliRenderer> = (
         api: TuiPluginApi<Renderer>,
-        options: Record<string, unknown> | undefined,
+        options: PluginOptions | undefined,
         meta: TuiPluginMeta,
     ) => Promise<void>
 
     export type TuiPluginModule<Renderer = CliRenderer> = {
         server?: ServerPlugin
         tui?: TuiPlugin<Renderer>
-        slots?: TuiSlotPlugin
     }
 }

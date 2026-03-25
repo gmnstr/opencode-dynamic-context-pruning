@@ -489,11 +489,9 @@ export const createSidebarTopSlot = (
     }
 
     return {
-        id: names.slot,
         order: 90,
         slots: {
             sidebar_content: renderSidebar,
-            sidebar_top: renderSidebar,
         },
     }
 }
