@@ -13,6 +13,7 @@ import type { PluginConfig } from "../config"
 import { sendIgnoredMessage } from "../ui/notification"
 import { getCurrentParams } from "../strategies/utils"
 import { buildCompressedBlockGuidance } from "../messages/inject/utils"
+import { isIgnoredUserMessage } from "../messages/utils"
 
 const MANUAL_MODE_ON = "Manual mode is now ON. Use /dcp compress to trigger context tools manually."
 
@@ -85,4 +86,40 @@ export async function handleManualTriggerCommand(
     userFocus?: string,
 ): Promise<string | null> {
     return getTriggerPrompt(tool, ctx.state, ctx.config, userFocus)
+}
+
+export function applyPendingManualTrigger(
+    state: SessionState,
+    messages: WithParts[],
+    logger: Logger,
+): void {
+    const pending = state.pendingManualTrigger
+    if (!pending) {
+        return
+    }
+
+    if (!state.sessionId || pending.sessionId !== state.sessionId) {
+        state.pendingManualTrigger = null
+        return
+    }
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i]
+        if (msg.info.role !== "user" || isIgnoredUserMessage(msg)) {
+            continue
+        }
+
+        for (const part of msg.parts) {
+            if (part.type !== "text" || part.ignored || part.synthetic) {
+                continue
+            }
+
+            part.text = pending.prompt
+            state.pendingManualTrigger = null
+            logger.debug("Applied manual prompt", { sessionId: pending.sessionId })
+            return
+        }
+    }
+
+    state.pendingManualTrigger = null
 }

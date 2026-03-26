@@ -186,6 +186,18 @@ export const injectMessageIds = (
             continue
         }
 
+        const hasContent = message.parts.some(
+            (p) =>
+                (p.type === "text" && typeof p.text === "string" && p.text.trim().length > 0) ||
+                (p.type === "tool" &&
+                    p.state?.status === "completed" &&
+                    typeof p.state.output === "string"),
+        )
+
+        if (!hasContent) {
+            continue
+        }
+
         let injected = false
         for (const part of message.parts) {
             if (part.type === "text") {
@@ -195,16 +207,14 @@ export const injectMessageIds = (
             }
         }
 
-        if (injected) {
-            continue
-        }
-
-        const syntheticPart = createSyntheticTextPart(message, tag)
-        const firstToolIndex = message.parts.findIndex((p) => p.type === "tool")
-        if (firstToolIndex === -1) {
-            message.parts.push(syntheticPart)
-        } else {
-            message.parts.splice(firstToolIndex, 0, syntheticPart)
+        if (!injected) {
+            const syntheticPart = createSyntheticTextPart(message, tag)
+            const firstToolIndex = message.parts.findIndex((p) => p.type === "tool")
+            if (firstToolIndex === -1) {
+                message.parts.push(syntheticPart)
+            } else {
+                message.parts.splice(firstToolIndex, 0, syntheticPart)
+            }
         }
     }
 }

@@ -2,74 +2,40 @@ import type { SessionState, WithParts } from "./state"
 import type { Logger } from "./logger"
 import type { PluginConfig } from "./config"
 import { assignMessageRefs } from "./message-ids"
-import { buildPriorityMap } from "./messages/priority"
-import { syncToolCache } from "./state/tool-cache"
 import {
-    prune,
-    syncCompressionBlocks,
-    injectCompressNudges,
-    injectMessageIds,
-    injectExtendedSubAgentResults,
-    stripStaleMetadata,
-} from "./messages"
-import {
+    buildPriorityMap,
     buildToolIdList,
-    isIgnoredUserMessage,
+    injectCompressNudges,
+    injectExtendedSubAgentResults,
+    injectMessageIds,
+    prune,
     stripHallucinations,
     stripHallucinationsFromString,
-} from "./messages/utils"
-import { checkSession } from "./state"
-import { renderSystemPrompt } from "./prompts"
-import { handleStatsCommand } from "./commands/stats"
-import { handleContextCommand } from "./commands/context"
-import { handleHelpCommand } from "./commands/help"
-import { handleSweepCommand } from "./commands/sweep"
-import { handleManualToggleCommand, handleManualTriggerCommand } from "./commands/manual"
-import { handleDecompressCommand } from "./commands/decompress"
-import { handleRecompressCommand } from "./commands/recompress"
+    stripStaleMetadata,
+    syncCompressionBlocks,
+} from "./messages"
+import { renderSystemPrompt, type PromptStore } from "./prompts"
+import {
+    applyPendingManualTrigger,
+    handleContextCommand,
+    handleDecompressCommand,
+    handleHelpCommand,
+    handleManualToggleCommand,
+    handleManualTriggerCommand,
+    handleRecompressCommand,
+    handleStatsCommand,
+    handleSweepCommand,
+} from "./commands"
 import { type HostPermissionSnapshot } from "./host-permissions"
 import { compressPermission, syncCompressPermissionState } from "./shared-utils"
-import { ensureSessionInitialized } from "./state/state"
+import { checkSession, ensureSessionInitialized, syncToolCache } from "./state"
 import { cacheSystemPromptTokens } from "./ui/utils"
-import type { PromptStore } from "./prompts/store"
 
 const INTERNAL_AGENT_SIGNATURES = [
     "You are a title generator",
     "You are a helpful AI assistant tasked with summarizing conversations",
     "Summarize what was done in this conversation",
 ]
-
-function applyManualPrompt(state: SessionState, messages: WithParts[], logger: Logger): void {
-    const pending = state.pendingManualTrigger
-    if (!pending) {
-        return
-    }
-
-    if (!state.sessionId || pending.sessionId !== state.sessionId) {
-        state.pendingManualTrigger = null
-        return
-    }
-
-    for (let i = messages.length - 1; i >= 0; i--) {
-        const msg = messages[i]
-        if (msg.info.role !== "user" || isIgnoredUserMessage(msg)) {
-            continue
-        }
-
-        for (const part of msg.parts) {
-            if (part.type !== "text" || part.ignored || part.synthetic) {
-                continue
-            }
-
-            part.text = pending.prompt
-            state.pendingManualTrigger = null
-            logger.debug("Applied manual prompt", { sessionId: pending.sessionId })
-            return
-        }
-    }
-
-    state.pendingManualTrigger = null
-}
 
 export function createSystemPromptHandler(
     state: SessionState,
@@ -162,7 +128,7 @@ export function createChatMessageTransformHandler(
             compressionPriorities,
         )
         injectMessageIds(state, config, output.messages, compressionPriorities)
-        applyManualPrompt(state, output.messages, logger)
+        applyPendingManualTrigger(state, output.messages, logger)
         stripStaleMetadata(output.messages)
 
         if (state.sessionId) {

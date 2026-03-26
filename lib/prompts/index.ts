@@ -1,4 +1,5 @@
 import type { RuntimePrompts } from "./store"
+export type { PromptStore, RuntimePrompts } from "./store"
 
 function stripLegacyInlineComments(content: string): string {
     return content.replace(/^[ \t]*\/\/.*?\/\/[ \t]*$/gm, "")
