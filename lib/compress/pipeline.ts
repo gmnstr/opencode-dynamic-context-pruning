@@ -86,7 +86,6 @@ export async function finalizeSession(
     await saveSessionState(ctx.state, ctx.logger)
 
     const params = getCurrentParams(ctx.state, rawMessages, ctx.logger)
-    const totalSessionTokens = getCurrentTokenUsage(ctx.state, rawMessages)
     const sessionMessageIds = rawMessages
         .filter((msg) => !isIgnoredUserMessage(msg))
         .map((msg) => msg.info.id)
@@ -99,7 +98,6 @@ export async function finalizeSession(
         toolCtx.sessionID,
         entries,
         batchTopic,
-        totalSessionTokens,
         sessionMessageIds,
         params,
     )

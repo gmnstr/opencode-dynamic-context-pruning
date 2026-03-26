@@ -271,6 +271,18 @@ export function collectTurnNudgeAnchors(messages: WithParts[]): Set<string> {
     return anchors
 }
 
+export function getActiveSummaryTokenUsage(state: SessionState): number {
+    let total = 0
+    for (const blockId of state.prune.messages.activeBlockIds) {
+        const block = state.prune.messages.blocksById.get(blockId)
+        if (!block || !block.active) {
+            continue
+        }
+        total += block.summaryTokens
+    }
+    return total
+}
+
 export function resetOnCompaction(state: SessionState): void {
     state.toolParameters.clear()
     state.prune.tools = new Map<string, number>()

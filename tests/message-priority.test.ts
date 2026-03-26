@@ -629,14 +629,44 @@ test("hallucination stripping removes all dcp-prefixed XML tags including varian
 })
 
 test("hallucination stripping removes colon and underscore dcp tag variants", async () => {
+    assert.equal(stripHallucinationsFromString("beforeafter"), "beforeafter")
+    assert.equal(stripHallucinationsFromString("startend"), "startend")
+})
+
+test("hallucination stripping removes orphan opening tags", async () => {
     assert.equal(
-        stripHallucinationsFromString("before<dcp:message_id>m0074</dcp:message_id>after"),
-        "beforeafter",
+        stripHallucinationsFromString("narration\n\n<dcp:function_calls>\n\n"),
+        "narration\n\n\n\n",
     )
+    assert.equal(stripHallucinationsFromString('text <dcp:invoke name="edit"> more'), "text  more")
+})
+
+test("hallucination stripping removes orphan closing tags", async () => {
+    assert.equal(stripHallucinationsFromString("text</dcp:function_calls> more"), "text more")
+    assert.equal(stripHallucinationsFromString("before</dcp-message-id>after"), "beforeafter")
+})
+
+test("hallucination stripping handles nested dcp tags", async () => {
     assert.equal(
         stripHallucinationsFromString(
-            'start<dcp-function_calls><invoke name="Bash"></invoke></dcp-function_calls>end',
+            'before<dcp:function_calls>\n<dcp:invoke name="edit">content</dcp:invoke>\n</dcp:function_calls>after',
         ),
-        "startend",
+        "before\nafter",
+    )
+})
+
+test("hallucination stripping handles mixed paired and orphan tags", async () => {
+    assert.equal(
+        stripHallucinationsFromString(
+            'text\n<dcp-message-id priority="low">m0045</dcp-message-id>\n<dcp:function_calls>\n',
+        ),
+        "text\n\n\n",
+    )
+})
+
+test("hallucination stripping does not affect non-dcp tags", async () => {
+    assert.equal(
+        stripHallucinationsFromString("<div>hello</div> <system-reminder>keep</system-reminder>"),
+        "<div>hello</div> <system-reminder>keep</system-reminder>",
     )
 })

@@ -11,6 +11,7 @@ import {
 import { appendToLastTextPart, createSyntheticTextPart, isIgnoredUserMessage } from "../utils"
 import { getLastUserMessage } from "../../shared-utils"
 import { getCurrentTokenUsage } from "../../strategies/utils"
+import { getActiveSummaryTokenUsage } from "../../state/utils"
 
 const MESSAGE_MODE_NUDGE_PRIORITY: MessagePriority = "high"
 
@@ -117,21 +118,6 @@ function resolveContextTokenLimit(
     const globalLimit =
         threshold === "max" ? config.compress.maxContextLimit : config.compress.minContextLimit
     return parseLimitValue(globalLimit)
-}
-
-function getActiveSummaryTokenUsage(state: SessionState): number {
-    let total = 0
-
-    for (const blockId of state.prune.messages.activeBlockIds) {
-        const block = state.prune.messages.blocksById.get(blockId)
-        if (!block || !block.active) {
-            continue
-        }
-
-        total += block.summaryTokens
-    }
-
-    return total
 }
 
 export function isContextOverLimits(

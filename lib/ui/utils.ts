@@ -142,11 +142,12 @@ export function formatStatsHeader(totalTokensSaved: number, pruneTokenCounter: n
     return [`▣ DCP | ${totalTokensSavedStr} saved total`].join("\n")
 }
 
-export function formatTokenCount(tokens: number): string {
+export function formatTokenCount(tokens: number, compact?: boolean): string {
+    const suffix = compact ? "" : " tokens"
     if (tokens >= 1000) {
-        return `${(tokens / 1000).toFixed(1)}K`.replace(".0K", "K") + " tokens"
+        return `${(tokens / 1000).toFixed(1)}K`.replace(".0K", "K") + suffix
     }
-    return tokens.toString() + " tokens"
+    return tokens.toString() + suffix
 }
 
 export function truncate(str: string, maxLen: number = 60): string {
