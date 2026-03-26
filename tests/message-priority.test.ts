@@ -670,3 +670,104 @@ test("hallucination stripping does not affect non-dcp tags", async () => {
         "<div>hello</div> <system-reminder>keep</system-reminder>",
     )
 })
+
+test("injectMessageIds skips empty assistant messages to avoid prefill (issue #463)", () => {
+    const sessionID = "ses_empty_assistant"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
+        {
+            info: {
+                id: "msg-assistant-empty",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [],
+        },
+        buildMessage("msg-user-2", "user", sessionID, "continue", 3),
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    injectMessageIds(state, config, messages)
+
+    const emptyAssistant = messages[1]!
+    assert.equal(emptyAssistant.parts.length, 0, "empty assistant should get no synthetic parts")
+})
+
+test("injectMessageIds skips assistant with only pending tool parts (issue #463)", () => {
+    const sessionID = "ses_pending_tool_assistant"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
+        {
+            info: {
+                id: "msg-assistant-pending",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [
+                {
+                    id: "pending-tool-part",
+                    messageID: "msg-assistant-pending",
+                    sessionID,
+                    type: "tool" as const,
+                    tool: "bash",
+                    callID: "call-pending-1",
+                    state: {
+                        status: "pending" as const,
+                        input: { command: "ls" },
+                    },
+                } as any,
+            ],
+        },
+        buildMessage("msg-user-2", "user", sessionID, "continue", 3),
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    injectMessageIds(state, config, messages)
+
+    const pendingAssistant = messages[1]!
+    assert.equal(
+        pendingAssistant.parts.length,
+        1,
+        "assistant with only pending tools should not get a synthetic text part",
+    )
+    assert.equal(pendingAssistant.parts[0]!.type, "tool")
+})
+
+test("injectMessageIds skips assistant with empty text part (issue #463)", () => {
+    const sessionID = "ses_empty_text_assistant"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
+        {
+            info: {
+                id: "msg-assistant-empty-text",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [textPart("msg-assistant-empty-text", sessionID, "empty-text-part", "")],
+        },
+        buildMessage("msg-user-2", "user", sessionID, "continue", 3),
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    injectMessageIds(state, config, messages)
+
+    const emptyTextAssistant = messages[1]!
+    assert.equal(emptyTextAssistant.parts.length, 1, "should not add a synthetic part")
+    assert.equal(
+        (emptyTextAssistant.parts[0] as any).text,
+        "",
+        "empty text part should remain untouched",
+    )
+})
