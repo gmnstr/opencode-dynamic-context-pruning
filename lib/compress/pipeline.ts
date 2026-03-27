@@ -4,7 +4,7 @@ import { saveSessionState } from "../state/persistence"
 import { assignMessageRefs } from "../message-ids"
 import { isIgnoredUserMessage } from "../messages/query"
 import { deduplicate, purgeErrors } from "../strategies"
-import { getCurrentParams, getCurrentTokenUsage } from "../token-utils"
+import { getCurrentParams } from "../token-utils"
 import { sendCompressNotification } from "../ui/notification"
 import type { ToolContext } from "./types"
 import { buildSearchContext, fetchSessionMessages } from "./search"
@@ -86,10 +86,9 @@ export async function finalizeSession(
     await saveSessionState(ctx.state, ctx.logger)
 
     const params = getCurrentParams(ctx.state, rawMessages, ctx.logger)
-    const totalSessionTokens = getCurrentTokenUsage(ctx.state, rawMessages)
-    const sessionMessages = rawMessages.filter(
-        (msg) => !(msg.info.role === "user" && isIgnoredUserMessage(msg)),
-    )
+    const sessionMessageIds = rawMessages
+        .filter((msg) => !isIgnoredUserMessage(msg))
+        .map((msg) => msg.info.id)
 
     await sendCompressNotification(
         ctx.client,
@@ -99,8 +98,7 @@ export async function finalizeSession(
         toolCtx.sessionID,
         entries,
         batchTopic,
-        totalSessionTokens,
-        sessionMessages,
+        sessionMessageIds,
         params,
     )
 }

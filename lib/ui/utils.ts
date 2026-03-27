@@ -144,10 +144,7 @@ export function formatStatsHeader(totalTokensSaved: number, pruneTokenCounter: n
 
 export function formatTokenCount(tokens: number, compact?: boolean): string {
     const suffix = compact ? "" : " tokens"
-    if (tokens >= 100_000) {
-        return `${Math.round(tokens / 1000)}K` + suffix
-    }
-    if (tokens >= 10_000 || (compact && tokens >= 1000)) {
+    if (tokens >= 1000) {
         return `${(tokens / 1000).toFixed(1)}K`.replace(".0K", "K") + suffix
     }
     return tokens.toString() + suffix
