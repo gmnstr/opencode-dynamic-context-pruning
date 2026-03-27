@@ -511,6 +511,160 @@ test("range-mode nudges append to existing text parts before tool outputs", () =
     assert.equal((toolOutput as any).state.output, "task output body")
 })
 
+test("range-mode nudges inject only once for assistant messages with multiple text parts", () => {
+    const sessionID = "ses_range_nudge_multi_text"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
+        {
+            info: {
+                id: "msg-assistant-1",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [
+                textPart("msg-assistant-1", sessionID, "assistant-text-1", "First chunk."),
+                textPart("msg-assistant-1", sessionID, "assistant-text-2", "Second chunk."),
+            ],
+        },
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    state.nudges.contextLimitAnchors.add("msg-assistant-1")
+
+    applyAnchoredNudges(state, config, messages, {
+        system: "",
+        compressRange: "",
+        compressMessage: "",
+        contextLimitNudge: "<dcp-system-reminder>Base context nudge</dcp-system-reminder>",
+        turnNudge: "<dcp-system-reminder>Base turn nudge</dcp-system-reminder>",
+        iterationNudge: "<dcp-system-reminder>Base iteration nudge</dcp-system-reminder>",
+    })
+
+    assert.match((messages[1]?.parts[0] as any).text, /Base context nudge/)
+    assert.doesNotMatch((messages[1]?.parts[1] as any).text, /Base context nudge/)
+})
+
+test("range-mode nudges skip empty assistant messages to avoid prefill (issue #463)", () => {
+    const sessionID = "ses_range_nudge_empty_assistant"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
+        {
+            info: {
+                id: "msg-assistant-empty",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [],
+        },
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    state.nudges.contextLimitAnchors.add("msg-assistant-empty")
+
+    applyAnchoredNudges(state, config, messages, {
+        system: "",
+        compressRange: "",
+        compressMessage: "",
+        contextLimitNudge: "<dcp-system-reminder>Base context nudge</dcp-system-reminder>",
+        turnNudge: "<dcp-system-reminder>Base turn nudge</dcp-system-reminder>",
+        iterationNudge: "<dcp-system-reminder>Base iteration nudge</dcp-system-reminder>",
+    })
+
+    assert.equal(messages[1]?.parts.length, 0)
+})
+
+test("range-mode nudges skip assistant with only pending tool parts (issue #463)", () => {
+    const sessionID = "ses_range_nudge_pending_tool"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
+        {
+            info: {
+                id: "msg-assistant-pending",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [
+                {
+                    id: "pending-tool-part",
+                    messageID: "msg-assistant-pending",
+                    sessionID,
+                    type: "tool" as const,
+                    tool: "bash",
+                    callID: "call-pending-1",
+                    state: {
+                        status: "pending" as const,
+                        input: { command: "ls" },
+                    },
+                } as any,
+            ],
+        },
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    state.nudges.contextLimitAnchors.add("msg-assistant-pending")
+
+    applyAnchoredNudges(state, config, messages, {
+        system: "",
+        compressRange: "",
+        compressMessage: "",
+        contextLimitNudge: "<dcp-system-reminder>Base context nudge</dcp-system-reminder>",
+        turnNudge: "<dcp-system-reminder>Base turn nudge</dcp-system-reminder>",
+        iterationNudge: "<dcp-system-reminder>Base iteration nudge</dcp-system-reminder>",
+    })
+
+    assert.equal(messages[1]?.parts.length, 1)
+    assert.equal(messages[1]?.parts[0]?.type, "tool")
+})
+
+test("range-mode nudges append to an assistant empty text part (issue #463)", () => {
+    const sessionID = "ses_range_nudge_empty_text"
+    const messages: WithParts[] = [
+        buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
+        {
+            info: {
+                id: "msg-assistant-empty-text",
+                role: "assistant",
+                sessionID,
+                agent: "assistant",
+                time: { created: 2 },
+            } as WithParts["info"],
+            parts: [textPart("msg-assistant-empty-text", sessionID, "empty-text-part", "")],
+        },
+    ]
+    const state = createSessionState()
+    const config = buildConfig("range")
+
+    assignMessageRefs(state, messages)
+    state.nudges.contextLimitAnchors.add("msg-assistant-empty-text")
+
+    applyAnchoredNudges(state, config, messages, {
+        system: "",
+        compressRange: "",
+        compressMessage: "",
+        contextLimitNudge: "<dcp-system-reminder>Base context nudge</dcp-system-reminder>",
+        turnNudge: "<dcp-system-reminder>Base turn nudge</dcp-system-reminder>",
+        iterationNudge: "<dcp-system-reminder>Base iteration nudge</dcp-system-reminder>",
+    })
+
+    assert.equal(messages[1]?.parts.length, 1)
+    assert.match(
+        (messages[1]?.parts[0] as any).text,
+        /<dcp-system-reminder>Base context nudge[\s\S]*Compressed block context:/,
+    )
+})
+
 test("message-mode rendered compressed summaries mark block IDs as BLOCKED", () => {
     const sessionID = "ses_message_blocked_blocks"
     const messages: WithParts[] = [

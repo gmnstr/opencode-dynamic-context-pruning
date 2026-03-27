@@ -10,6 +10,7 @@ import { Logger } from "./lib/logger"
 import { createSessionState } from "./lib/state"
 import { PromptStore } from "./lib/prompts/store"
 import {
+    createChatMessageHandler,
     createChatMessageTransformHandler,
     createCommandExecuteHandler,
     createSystemPromptHandler,
@@ -65,19 +66,7 @@ const plugin: Plugin = (async (ctx) => {
             prompts,
             hostPermissions,
         ) as any,
-        "chat.message": async (
-            input: {
-                sessionID: string
-                agent?: string
-                model?: { providerID: string; modelID: string }
-                messageID?: string
-                variant?: string
-            },
-            _output: any,
-        ) => {
-            state.variant = input.variant
-            logger.debug("Cached variant from chat.message hook", { variant: input.variant })
-        },
+        "chat.message": createChatMessageHandler(state, logger, config, hostPermissions),
         "experimental.text.complete": createTextCompleteHandler(),
         "command.execute.before": createCommandExecuteHandler(
             ctx.client,
@@ -96,19 +85,19 @@ const plugin: Plugin = (async (ctx) => {
             }),
         },
         config: async (opencodeConfig) => {
-            if (config.commands.enabled) {
-                opencodeConfig.command ??= {}
-                opencodeConfig.command["dcp"] = {
-                    template: "",
-                    description: "Show available DCP commands",
-                }
-            }
-
             if (
                 config.compress.permission !== "deny" &&
                 compressDisabledByOpencode(opencodeConfig.permission)
             ) {
                 config.compress.permission = "deny"
+            }
+
+            if (config.commands.enabled && config.compress.permission !== "deny") {
+                opencodeConfig.command ??= {}
+                opencodeConfig.command["dcp"] = {
+                    template: "",
+                    description: "Show available DCP commands",
+                }
             }
 
             const toolsToAdd: string[] = []

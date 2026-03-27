@@ -108,6 +108,18 @@ export const appendToLastTextPart = (message: WithParts, injection: string): boo
     return appendToTextPart(textPart, injection)
 }
 
+export const hasContent = (message: WithParts): boolean => {
+    return message.parts.some(
+        (part) =>
+            (part.type === "text" &&
+                typeof part.text === "string" &&
+                part.text.trim().length > 0) ||
+            (part.type === "tool" &&
+                part.state?.status === "completed" &&
+                typeof part.state.output === "string"),
+    )
+}
+
 export const appendToToolPart = (part: ToolPart, tag: string): boolean => {
     if (part.state?.status !== "completed" || typeof part.state.output !== "string") {
         return false

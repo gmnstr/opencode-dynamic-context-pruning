@@ -171,6 +171,9 @@ export function createCommandExecuteHandler(
             syncCompressPermissionState(state, config, hostPermissions, messages)
 
             const effectivePermission = compressPermission(state, config)
+            if (effectivePermission === "deny") {
+                return
+            }
 
             const args = (input.arguments || "").trim().split(/\s+/).filter(Boolean)
             const subcommand = args[0]?.toLowerCase() || ""
@@ -209,7 +212,7 @@ export function createCommandExecuteHandler(
                 throw new Error("__DCP_MANUAL_HANDLED__")
             }
 
-            if (subcommand === "compress" && effectivePermission !== "deny") {
+            if (subcommand === "compress") {
                 const userFocus = subArgs.join(" ").trim()
                 const prompt = await handleManualTriggerCommand(commandCtx, "compress", userFocus)
                 if (!prompt) {
@@ -230,7 +233,7 @@ export function createCommandExecuteHandler(
                 return
             }
 
-            if (subcommand === "decompress" && effectivePermission !== "deny") {
+            if (subcommand === "decompress") {
                 await handleDecompressCommand({
                     ...commandCtx,
                     args: subArgs,
@@ -238,7 +241,7 @@ export function createCommandExecuteHandler(
                 throw new Error("__DCP_DECOMPRESS_HANDLED__")
             }
 
-            if (subcommand === "recompress" && effectivePermission !== "deny") {
+            if (subcommand === "recompress") {
                 await handleRecompressCommand({
                     ...commandCtx,
                     args: subArgs,
@@ -258,5 +261,26 @@ export function createTextCompleteHandler() {
         output: { text: string },
     ) => {
         output.text = stripHallucinationsFromString(output.text)
+    }
+}
+
+export function createChatMessageHandler(
+    state: SessionState,
+    logger: Logger,
+    _config: PluginConfig,
+    _hostPermissions: HostPermissionSnapshot,
+) {
+    return async (
+        input: {
+            sessionID: string
+            agent?: string
+            model?: { providerID: string; modelID: string }
+            messageID?: string
+            variant?: string
+        },
+        _output: any,
+    ) => {
+        state.variant = input.variant
+        logger.debug("Cached variant from chat.message hook", { variant: input.variant })
     }
 }

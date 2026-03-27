@@ -8,7 +8,13 @@ import {
     type MessagePriority,
     listPriorityRefsBeforeIndex,
 } from "../priority"
-import { appendToLastTextPart, createSyntheticTextPart, isIgnoredUserMessage } from "../utils"
+import {
+    appendToTextPart,
+    appendToLastTextPart,
+    createSyntheticTextPart,
+    hasContent,
+    isIgnoredUserMessage,
+} from "../utils"
 import { getLastUserMessage } from "../../shared-utils"
 import { getCurrentTokenUsage } from "../../strategies/utils"
 import { getActiveSummaryTokenUsage } from "../../state/utils"
@@ -236,16 +242,28 @@ function injectAnchoredNudge(message: WithParts, nudgeText: string): void {
         return
     }
 
-    if (appendToLastTextPart(message, nudgeText)) {
-        return
-    }
-
     if (message.info.role === "user") {
+        if (appendToLastTextPart(message, nudgeText)) {
+            return
+        }
+
         message.parts.push(createSyntheticTextPart(message, nudgeText))
         return
     }
 
     if (message.info.role !== "assistant") {
+        return
+    }
+
+    for (const part of message.parts) {
+        if (part.type === "text") {
+            if (appendToTextPart(part, nudgeText)) {
+                return
+            }
+        }
+    }
+
+    if (!hasContent(message)) {
         return
     }
 

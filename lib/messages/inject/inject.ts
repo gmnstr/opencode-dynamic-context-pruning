@@ -10,6 +10,7 @@ import {
     appendToTextPart,
     appendToToolPart,
     createSyntheticTextPart,
+    hasContent,
     isIgnoredUserMessage,
     isProtectedUserMessage,
 } from "../utils"
@@ -186,15 +187,7 @@ export const injectMessageIds = (
             continue
         }
 
-        const hasContent = message.parts.some(
-            (p) =>
-                (p.type === "text" && typeof p.text === "string" && p.text.trim().length > 0) ||
-                (p.type === "tool" &&
-                    p.state?.status === "completed" &&
-                    typeof p.state.output === "string"),
-        )
-
-        if (!hasContent) {
+        if (!hasContent(message)) {
             continue
         }
 
