@@ -622,7 +622,7 @@ test("hallucination stripping removes all dcp-prefixed XML tags including varian
 
     assert.equal(stripHallucinationsFromString(text), "alphaomega")
 
-    const handler = createTextCompleteHandler()
+    const handler = createTextCompleteHandler(createSessionState(), buildConfig())
     const output = { text }
     await handler({ sessionID: "session", messageID: "message", partID: "part" }, output)
     assert.equal(output.text, "alphaomega")

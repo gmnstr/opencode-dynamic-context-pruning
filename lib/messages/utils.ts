@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import type { PluginConfig } from "../config"
+import { compressPermission } from "../shared-utils"
 import { isMessageCompacted } from "../shared-utils"
 import type { SessionState, WithParts } from "../state"
 import type { UserMessage } from "@opencode-ai/sdk/v2"
@@ -175,7 +176,15 @@ export const stripHallucinationsFromString = (text: string): string => {
     return text.replace(DCP_PAIRED_TAG_REGEX, "").replace(DCP_UNPAIRED_TAG_REGEX, "")
 }
 
-export const stripHallucinations = (messages: WithParts[]): void => {
+export const stripHallucinations = (
+    messages: WithParts[],
+    state: SessionState,
+    config: PluginConfig,
+): void => {
+    if (compressPermission(state, config) === "deny") {
+        return
+    }
+
     for (const message of messages) {
         for (const part of message.parts) {
             if (part.type === "text" && typeof part.text === "string") {
