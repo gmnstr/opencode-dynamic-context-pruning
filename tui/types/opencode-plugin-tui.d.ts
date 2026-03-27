@@ -81,7 +81,7 @@ declare module "@opencode-ai/plugin/tui" {
     }
 
     export type TuiDialogProps = {
-        size?: "medium" | "large"
+        size?: "medium" | "large" | "xlarge"
         onClose: () => void
         children?: JSX.Element
     }
@@ -89,8 +89,8 @@ declare module "@opencode-ai/plugin/tui" {
     export type TuiDialogStack = {
         replace: (render: () => JSX.Element, onClose?: () => void) => void
         clear: () => void
-        setSize: (size: "medium" | "large") => void
-        readonly size: "medium" | "large"
+        setSize: (size: "medium" | "large" | "xlarge") => void
+        readonly size: "medium" | "large" | "xlarge"
         readonly depth: number
         readonly open: boolean
     }
@@ -247,9 +247,17 @@ declare module "@opencode-ai/plugin/tui" {
         mcp: () => ReadonlyArray<TuiSidebarMcpItem>
     }
 
-    // Inlined: Pick<PluginConfig, "$schema" | "theme" | "keybinds" | "plugin"> & NonNullable<PluginConfig["tui"]>
+    // Upstream: Pick<PluginConfig, "$schema" | "theme" | "keybinds" | "plugin"> & NonNullable<PluginConfig["tui"]> & { plugin_enabled?: Record<string, boolean> }
     // PluginConfig (opencode.json schema) is not re-exported by @opencode-ai/plugin at installed version.
-    type TuiConfigView = Record<string, unknown>
+    // Approximation using known TUI-native config keys:
+    type TuiConfigView = {
+        $schema?: string
+        theme?: string
+        keybinds?: Record<string, string>
+        plugin?: Record<string, unknown>
+        plugin_enabled?: Record<string, boolean>
+        [key: string]: unknown
+    }
 
     type Frozen<Value> = Value extends (...args: never[]) => unknown
         ? Value
@@ -261,37 +269,6 @@ declare module "@opencode-ai/plugin/tui" {
 
     export type TuiApp = {
         readonly version: string
-    }
-
-    export type TuiApi = {
-        app: TuiApp
-        command: {
-            register: (cb: () => TuiCommand[]) => () => void
-            trigger: (value: string) => void
-        }
-        route: {
-            register: (routes: TuiRouteDefinition[]) => () => void
-            navigate: (name: string, params?: Record<string, unknown>) => void
-            readonly current: TuiRouteCurrent
-        }
-        ui: {
-            Dialog: (props: TuiDialogProps) => JSX.Element
-            DialogAlert: (props: TuiDialogAlertProps) => JSX.Element
-            DialogConfirm: (props: TuiDialogConfirmProps) => JSX.Element
-            DialogPrompt: (props: TuiDialogPromptProps) => JSX.Element
-            DialogSelect: <Value = unknown>(props: TuiDialogSelectProps<Value>) => JSX.Element
-            toast: (input: TuiToast) => void
-            dialog: TuiDialogStack
-        }
-        keybind: {
-            match: (key: string, evt: ParsedKey) => boolean
-            print: (key: string) => string
-            create: (defaults: TuiKeybindMap, overrides?: Record<string, unknown>) => TuiKeybindSet
-        }
-        readonly tuiConfig: Frozen<TuiConfigView>
-        kv: TuiKV
-        state: TuiState
-        theme: TuiTheme
     }
 
     export type TuiSidebarMcpItem = {
@@ -356,7 +333,7 @@ declare module "@opencode-ai/plugin/tui" {
     export type TuiPluginState = "first" | "updated" | "same"
 
     export type TuiPluginEntry = {
-        name: string
+        id: string
         source: "file" | "npm" | "internal"
         spec: string
         target: string
@@ -374,21 +351,84 @@ declare module "@opencode-ai/plugin/tui" {
         state: TuiPluginState
     }
 
+    export type TuiPluginStatus = {
+        id: string
+        source: "file" | "npm" | "internal"
+        spec: string
+        target: string
+        enabled: boolean
+        active: boolean
+    }
+
+    export type TuiPluginInstallOptions = {
+        global?: boolean
+    }
+
+    export type TuiPluginInstallResult =
+        | {
+              ok: true
+              dir: string
+              tui: boolean
+          }
+        | {
+              ok: false
+              message: string
+              missing?: boolean
+          }
+
     export type TuiWorkspace = {
         current: () => string | undefined
         set: (workspaceID?: string) => void
     }
 
-    export type TuiHostPluginApi<Renderer = CliRenderer> = TuiApi & {
+    // Flat TuiPluginApi matching upstream spec from PR #19347.
+    // Previous local shim split this into TuiApi -> TuiHostPluginApi -> TuiPluginApi;
+    // the upstream API is a single flat type.
+    export type TuiPluginApi<Renderer = CliRenderer> = {
+        app: TuiApp
+        command: {
+            register: (cb: () => TuiCommand[]) => () => void
+            trigger: (value: string) => void
+        }
+        route: {
+            register: (routes: TuiRouteDefinition[]) => () => void
+            navigate: (name: string, params?: Record<string, unknown>) => void
+            readonly current: TuiRouteCurrent
+        }
+        ui: {
+            Dialog: (props: TuiDialogProps) => JSX.Element
+            DialogAlert: (props: TuiDialogAlertProps) => JSX.Element
+            DialogConfirm: (props: TuiDialogConfirmProps) => JSX.Element
+            DialogPrompt: (props: TuiDialogPromptProps) => JSX.Element
+            DialogSelect: <Value = unknown>(props: TuiDialogSelectProps<Value>) => JSX.Element
+            toast: (input: TuiToast) => void
+            dialog: TuiDialogStack
+        }
+        keybind: {
+            match: (key: string, evt: ParsedKey) => boolean
+            print: (key: string) => string
+            create: (defaults: TuiKeybindMap, overrides?: Record<string, unknown>) => TuiKeybindSet
+        }
+        readonly tuiConfig: Frozen<TuiConfigView>
+        kv: TuiKV
+        state: TuiState
+        theme: TuiTheme
         client: ReturnType<typeof createOpencodeClientV2>
         scopedClient: (workspaceID?: string) => ReturnType<typeof createOpencodeClientV2>
         workspace: TuiWorkspace
         event: TuiEventBus
         renderer: Renderer
-    }
-
-    export type TuiPluginApi<Renderer = CliRenderer> = TuiHostPluginApi<Renderer> & {
         slots: TuiSlots
+        plugins: {
+            list: () => ReadonlyArray<TuiPluginStatus>
+            activate: (id: string) => Promise<boolean>
+            deactivate: (id: string) => Promise<boolean>
+            add: (spec: string) => Promise<boolean>
+            install: (
+                spec: string,
+                options?: TuiPluginInstallOptions,
+            ) => Promise<TuiPluginInstallResult>
+        }
         lifecycle: TuiLifecycle
     }
 

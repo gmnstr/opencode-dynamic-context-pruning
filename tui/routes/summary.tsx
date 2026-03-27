@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 import { createMemo, createSignal, For, Show } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
-import type { TuiApi } from "@opencode-ai/plugin/tui"
+import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
 import { getPalette, type DcpPalette } from "../shared/theme"
 import { LABEL, NAMES } from "../shared/names"
 
@@ -23,6 +23,9 @@ interface ParsedSummary {
     sections: CollapsibleSection[]
 }
 
+// These patterns must stay in sync with the exact headings produced by
+// lib/compress (compactSummary output). If compression wording changes,
+// update these patterns accordingly.
 const SECTION_HEADINGS: { pattern: RegExp; label: string }[] = [
     {
         pattern: /\n*The following user messages were sent in this conversation verbatim:/,
@@ -99,13 +102,9 @@ function CollapsibleSectionRow(props: { section: CollapsibleSection; palette: Dc
     )
 }
 
-function SummaryScreen(props: { api: TuiApi }) {
-    const params = createMemo(() => {
-        const current = props.api.route.current
-        return ("params" in current ? current.params : {}) as SummaryRouteParams
-    })
+function SummaryScreen(props: { api: TuiPluginApi; params: SummaryRouteParams }) {
     const palette = createMemo(() => getPalette(props.api.theme.current as Record<string, unknown>))
-    const parsed = createMemo(() => parseSummary(params().summary || ""))
+    const parsed = createMemo(() => parseSummary(props.params.summary || ""))
 
     const keys = props.api.keybind.create({ close: "escape" })
 
@@ -116,7 +115,7 @@ function SummaryScreen(props: { api: TuiApi }) {
         if (!matched) return
         evt.preventDefault()
         evt.stopPropagation()
-        const sessionID = params().sessionID
+        const sessionID = props.params.sessionID
         if (sessionID) {
             props.api.route.navigate("session", { sessionID })
         } else {
@@ -139,7 +138,7 @@ function SummaryScreen(props: { api: TuiApi }) {
                     </text>
                 </box>
                 <text fg={palette().accent}>
-                    <b>{params().topic || "Compression Summary"}</b>
+                    <b>{props.params.topic || "Compression Summary"}</b>
                 </text>
             </box>
 
@@ -168,7 +167,9 @@ function SummaryScreen(props: { api: TuiApi }) {
     )
 }
 
-export const createSummaryRoute = (api: TuiApi) => ({
+export const createSummaryRoute = (api: TuiPluginApi) => ({
     name: NAMES.routes.summary,
-    render: () => <SummaryScreen api={api} />,
+    render: (input: { params?: Record<string, unknown> }) => (
+        <SummaryScreen api={api} params={(input.params ?? {}) as SummaryRouteParams} />
+    ),
 })

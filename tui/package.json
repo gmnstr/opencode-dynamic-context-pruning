@@ -1,6 +1,6 @@
 {
     "$schema": "https://json.schemastore.org/package.json",
-    "name": "dcp-tui-probe-local",
+    "name": "dcp-tui-local",
     "private": true,
     "type": "module",
     "dependencies": {

@@ -2,7 +2,7 @@
 import type { TuiPlugin } from "@opencode-ai/plugin/tui"
 import { getConfigForDirectory } from "../lib/config"
 import { Logger } from "../lib/logger"
-import { createSidebarTopSlot } from "./slots/sidebar-top"
+import { createSidebarContentSlot } from "./slots/sidebar-content"
 import { createSummaryRoute } from "./routes/summary"
 import { NAMES } from "./shared/names"
 
@@ -22,10 +22,13 @@ const tui: TuiPlugin = async (api) => {
     api.route.register([createSummaryRoute(api)])
 
     if (config.tui.sidebar) {
-        api.slots.register(createSidebarTopSlot(api, NAMES, logger))
+        api.slots.register(createSidebarContentSlot(api, NAMES, logger))
     }
 }
 
+const id = "opencode-dynamic-context-pruning"
+
 export default {
+    id,
     tui,
 }

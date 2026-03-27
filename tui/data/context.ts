@@ -38,7 +38,7 @@ export const createPlaceholderContextSnapshot = (
 function cleanBlockSummary(raw: string): string {
     return raw
         .replace(/^\s*\[Compressed conversation section\]\s*/i, "")
-        .replace(/\s*<dcp-message-id>b\d+<\/dcp-message-id>\s*$/i, "")
+        .replace(/\s*b\d+<\/dcp-message-id>\s*$/i, "")
         .trim()
 }
 
@@ -73,9 +73,11 @@ const loadContextSnapshot = async (
     }
 
     const messagesResult = await client.session.messages({ sessionID })
-    const messages = Array.isArray(messagesResult.data)
-        ? (messagesResult.data as WithParts[])
-        : ([] as WithParts[])
+    const rawMessages =
+        messagesResult && typeof messagesResult === "object" && "data" in messagesResult
+            ? messagesResult.data
+            : messagesResult
+    const messages = Array.isArray(rawMessages) ? (rawMessages as WithParts[]) : ([] as WithParts[])
 
     const { state, persisted } = await buildState(sessionID, messages, logger)
     const [{ breakdown, messageStatuses }, aggregated] = await Promise.all([

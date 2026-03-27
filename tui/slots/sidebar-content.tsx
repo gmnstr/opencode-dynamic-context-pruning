@@ -467,7 +467,7 @@ const SidebarContext = (props: {
     )
 }
 
-export const createSidebarTopSlot = (
+export const createSidebarContentSlot = (
     api: DcpTuiApi,
     names: DcpRouteNames,
     logger: Logger,
