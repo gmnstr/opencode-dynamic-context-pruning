@@ -255,16 +255,16 @@ function injectAnchoredNudge(message: WithParts, nudgeText: string): void {
         return
     }
 
+    if (!hasContent(message)) {
+        return
+    }
+
     for (const part of message.parts) {
         if (part.type === "text") {
             if (appendToTextPart(part, nudgeText)) {
                 return
             }
         }
-    }
-
-    if (!hasContent(message)) {
-        return
     }
 
     const syntheticPart = createSyntheticTextPart(message, nudgeText)

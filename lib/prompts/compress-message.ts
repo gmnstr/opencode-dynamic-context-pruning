@@ -15,7 +15,7 @@ You specify individual raw messages by ID using the injected IDs visible in the 
 - \`mNNNN\` IDs identify raw messages
 
 Each message has an ID inside XML metadata tags like \`<dcp-message-id priority="high">m0007</dcp-message-id>\`.
-The ID tag appears at the end of the message it belongs to — it identifies the message above it, not the one below it.
+The ID tag appears at the end of the message it belongs to — each ID covers all the content above it back to the previous ID.
 Treat these tags as message metadata only, not as content to summarize. Use only the inner \`mNNNN\` value as the \`messageId\`.
 The \`priority\` attribute indicates relative context cost. Prefer higher-priority closed messages before lower-priority ones.
 Messages marked as \`<dcp-message-id>BLOCKED</dcp-message-id>\` cannot be compressed.

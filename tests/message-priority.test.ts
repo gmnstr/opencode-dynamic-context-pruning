@@ -130,7 +130,7 @@ function repeatedWord(word: string, count: number): string {
     return Array.from({ length: count }, () => word).join(" ")
 }
 
-test("injectMessageIds tags every text part and tool output in message mode", () => {
+test("injectMessageIds injects ID once into last tool output for assistant messages", () => {
     const sessionID = "ses_message_priority_tags"
     const messages: WithParts[] = [
         {
@@ -211,30 +211,14 @@ test("injectMessageIds tags every text part and tool output in message mode", ()
     assert.equal(assistantToolOne?.type, "tool")
     assert.equal(assistantTextTwo?.type, "text")
     assert.equal(assistantToolTwo?.type, "tool")
-    assert.match(
-        (userTextOne as any).text,
-        /\n\n<dcp-message-id priority="high">m0001<\/dcp-message-id>/,
-    )
-    assert.match(
-        (userTextTwo as any).text,
-        /\n\n<dcp-message-id priority="high">m0001<\/dcp-message-id>/,
-    )
-    assert.match(
-        (assistantTextOne as any).text,
-        /\n\n<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
-    )
-    assert.match(
-        (assistantToolOne as any).state.output,
-        /<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
-    )
-    assert.match(
-        (assistantTextTwo as any).text,
-        /\n\n<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
-    )
-    assert.match(
-        (assistantToolTwo as any).state.output,
-        /<dcp-message-id priority="low">m0002<\/dcp-message-id>/,
-    )
+    // User messages: still injected into all text parts
+    assert.match((userTextOne as any).text, /\n\nm0001<\/dcp-message-id>/)
+    assert.match((userTextTwo as any).text, /\n\nm0001<\/dcp-message-id>/)
+    // Assistant messages: ID injected only once into the last tool output
+    assert.doesNotMatch((assistantTextOne as any).text, /dcp-message-id/)
+    assert.doesNotMatch((assistantToolOne as any).state.output, /dcp-message-id/)
+    assert.doesNotMatch((assistantTextTwo as any).text, /dcp-message-id/)
+    assert.match((assistantToolTwo as any).state.output, /m0002<\/dcp-message-id>/)
 })
 
 test("injectMessageIds marks every protected user text part as BLOCKED in message mode", () => {
@@ -290,7 +274,7 @@ test("injectMessageIds marks every protected user text part as BLOCKED in messag
     )
 })
 
-test("injectMessageIds tags every text part and tool output in range mode", () => {
+test("injectMessageIds injects ID once into last tool output in range mode", () => {
     const sessionID = "ses_range_message_id_tags"
     const messages: WithParts[] = [
         buildMessage("msg-user-1", "user", sessionID, repeatedWord("investigate", 6000), 1),
@@ -327,10 +311,11 @@ test("injectMessageIds tags every text part and tool output in range mode", () =
     const assistantTextTwo = messages[1]?.parts[2]
     const assistantToolTwo = messages[1]?.parts[3]
 
-    assert.match((assistantTextOne as any).text, /\n\n<dcp-message-id>m0002<\/dcp-message-id>/)
-    assert.match((assistantToolOne as any).state.output, /<dcp-message-id>m0002<\/dcp-message-id>/)
-    assert.match((assistantTextTwo as any).text, /\n\n<dcp-message-id>m0002<\/dcp-message-id>/)
-    assert.match((assistantToolTwo as any).state.output, /<dcp-message-id>m0002<\/dcp-message-id>/)
+    // Only the last tool output gets the ID
+    assert.doesNotMatch((assistantTextOne as any).text, /dcp-message-id/)
+    assert.doesNotMatch((assistantToolOne as any).state.output, /dcp-message-id/)
+    assert.doesNotMatch((assistantTextTwo as any).text, /dcp-message-id/)
+    assert.match((assistantToolTwo as any).state.output, /m0002<\/dcp-message-id>/)
 })
 
 test("message mode marks compress tool messages as high priority even when short", () => {
@@ -370,10 +355,9 @@ test("message mode marks compress tool messages as high priority even when short
     const assistantText = messages[1]?.parts[0]
     const assistantTool = messages[1]?.parts[1]
 
-    assert.match(
-        (assistantText as any).text,
-        /\n\n<dcp-message-id priority="high">m0002<\/dcp-message-id>/,
-    )
+    // ID injected only into the last (only) tool output, not the text part
+    assert.doesNotMatch((assistantText as any).text, /dcp-message-id/)
+    assert.match((assistantTool as any).state.output, /m0002<\/dcp-message-id>/)
     assert.match(
         (assistantTool as any).state.output,
         /<dcp-message-id priority="high">m0002<\/dcp-message-id>/,
@@ -628,7 +612,7 @@ test("range-mode nudges skip assistant with only pending tool parts (issue #463)
     assert.equal(messages[1]?.parts[0]?.type, "tool")
 })
 
-test("range-mode nudges append to an assistant empty text part (issue #463)", () => {
+test("range-mode nudges skip assistant messages with only empty text parts (issue #463)", () => {
     const sessionID = "ses_range_nudge_empty_text"
     const messages: WithParts[] = [
         buildMessage("msg-user-1", "user", sessionID, "Hello", 1),
@@ -653,16 +637,14 @@ test("range-mode nudges append to an assistant empty text part (issue #463)", ()
         system: "",
         compressRange: "",
         compressMessage: "",
-        contextLimitNudge: "<dcp-system-reminder>Base context nudge</dcp-system-reminder>",
-        turnNudge: "<dcp-system-reminder>Base turn nudge</dcp-system-reminder>",
-        iterationNudge: "<dcp-system-reminder>Base iteration nudge</dcp-system-reminder>",
+        contextLimitNudge: "",
+        turnNudge: "",
+        iterationNudge: "",
     })
 
+    // Empty text parts should not receive nudge injection
     assert.equal(messages[1]?.parts.length, 1)
-    assert.match(
-        (messages[1]?.parts[0] as any).text,
-        /<dcp-system-reminder>Base context nudge[\s\S]*Compressed block context:/,
-    )
+    assert.equal((messages[1]?.parts[0] as any).text, "")
 })
 
 test("message-mode rendered compressed summaries mark block IDs as BLOCKED", () => {

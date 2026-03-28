@@ -45,7 +45,7 @@ You specify boundaries by ID using the injected IDs visible in the conversation:
 - \`bN\` IDs identify previously compressed blocks
 
 Each message has an ID inside XML metadata tags like \`<dcp-message-id>...</dcp-message-id>\`.
-The ID tag appears at the end of the message it belongs to — it identifies the message above it, not the one below it.
+The ID tag appears at the end of the message it belongs to — each ID covers all the content above it back to the previous ID.
 Treat these tags as boundary metadata only, not as tool result content.
 
 Rules:
