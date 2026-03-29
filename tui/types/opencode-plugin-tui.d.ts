@@ -17,7 +17,6 @@ declare module "@opencode-ai/plugin/tui" {
 
     import type { CliRenderer, ParsedKey, RGBA } from "@opentui/core"
     import type { JSX, SolidPlugin } from "@opentui/solid"
-    import type { Plugin as ServerPlugin } from "@opencode-ai/plugin"
 
     // PluginOptions = Record<string, unknown> — not yet exported by installed @opencode-ai/plugin
     type PluginOptions = Record<string, unknown>
@@ -113,6 +112,8 @@ declare module "@opencode-ai/plugin/tui" {
         description?: () => JSX.Element
         placeholder?: string
         value?: string
+        busy?: boolean
+        busyText?: string
         onConfirm?: (value: string) => void
         onCancel?: () => void
     }
@@ -137,6 +138,19 @@ declare module "@opencode-ai/plugin/tui" {
         onSelect?: (option: TuiDialogSelectOption<Value>) => void
         skipFilter?: boolean
         current?: Value
+    }
+
+    export type TuiPromptProps = {
+        workspaceID?: string
+        visible?: boolean
+        disabled?: boolean
+        onSubmit?: () => void
+        hint?: JSX.Element
+        showPlaceholder?: boolean
+        placeholders?: {
+            normal?: string[]
+            shell?: string[]
+        }
     }
 
     export type TuiToast = {
@@ -247,14 +261,13 @@ declare module "@opencode-ai/plugin/tui" {
         mcp: () => ReadonlyArray<TuiSidebarMcpItem>
     }
 
-    // Upstream: Pick<PluginConfig, "$schema" | "theme" | "keybinds" | "plugin"> & NonNullable<PluginConfig["tui"]> & { plugin_enabled?: Record<string, boolean> }
-    // PluginConfig (opencode.json schema) is not re-exported by @opencode-ai/plugin at installed version.
-    // Approximation using known TUI-native config keys:
+    // Current upstream shape is based on the host TUI config plus plugin tuples.
+    // PluginConfig is not re-exported by the installed @opencode-ai/plugin version.
     type TuiConfigView = {
         $schema?: string
         theme?: string
         keybinds?: Record<string, string>
-        plugin?: Record<string, unknown>
+        plugin?: Array<string | [string, PluginOptions]>
         plugin_enabled?: Record<string, boolean>
         [key: string]: unknown
     }
@@ -290,6 +303,9 @@ declare module "@opencode-ai/plugin/tui" {
     export type TuiSlotMap = {
         app: {}
         home_logo: {}
+        home_prompt: {
+            workspace_id?: string
+        }
         home_bottom: {}
         sidebar_title: {
             session_id: string
@@ -381,10 +397,8 @@ declare module "@opencode-ai/plugin/tui" {
         set: (workspaceID?: string) => void
     }
 
-    // Flat TuiPluginApi matching upstream spec from PR #19347.
-    // Previous local shim split this into TuiApi -> TuiHostPluginApi -> TuiPluginApi;
-    // the upstream API is a single flat type.
-    export type TuiPluginApi<Renderer = CliRenderer> = {
+    // Flat TuiPluginApi matching the current upstream TUI plugin API.
+    export type TuiPluginApi = {
         app: TuiApp
         command: {
             register: (cb: () => TuiCommand[]) => () => void
@@ -401,6 +415,7 @@ declare module "@opencode-ai/plugin/tui" {
             DialogConfirm: (props: TuiDialogConfirmProps) => JSX.Element
             DialogPrompt: (props: TuiDialogPromptProps) => JSX.Element
             DialogSelect: <Value = unknown>(props: TuiDialogSelectProps<Value>) => JSX.Element
+            Prompt: (props: TuiPromptProps) => JSX.Element
             toast: (input: TuiToast) => void
             dialog: TuiDialogStack
         }
@@ -417,7 +432,7 @@ declare module "@opencode-ai/plugin/tui" {
         scopedClient: (workspaceID?: string) => ReturnType<typeof createOpencodeClientV2>
         workspace: TuiWorkspace
         event: TuiEventBus
-        renderer: Renderer
+        renderer: CliRenderer
         slots: TuiSlots
         plugins: {
             list: () => ReadonlyArray<TuiPluginStatus>
@@ -432,14 +447,15 @@ declare module "@opencode-ai/plugin/tui" {
         lifecycle: TuiLifecycle
     }
 
-    export type TuiPlugin<Renderer = CliRenderer> = (
-        api: TuiPluginApi<Renderer>,
+    export type TuiPlugin = (
+        api: TuiPluginApi,
         options: PluginOptions | undefined,
         meta: TuiPluginMeta,
     ) => Promise<void>
 
-    export type TuiPluginModule<Renderer = CliRenderer> = {
-        server?: ServerPlugin
-        tui?: TuiPlugin<Renderer>
+    export type TuiPluginModule = {
+        id?: string
+        tui: TuiPlugin
+        server?: never
     }
 }
