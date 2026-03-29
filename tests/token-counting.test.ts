@@ -6,7 +6,7 @@ import {
     countToolTokens,
     estimateTokensBatch,
     extractToolContent,
-} from "../lib/strategies/utils"
+} from "../lib/token-utils"
 
 function buildToolMessage(part: Record<string, any>): WithParts {
     return {

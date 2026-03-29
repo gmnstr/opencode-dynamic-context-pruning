@@ -27,7 +27,7 @@ import {
     handleSweepCommand,
 } from "./commands"
 import { type HostPermissionSnapshot } from "./host-permissions"
-import { compressPermission, syncCompressPermissionState } from "./shared-utils"
+import { compressPermission, syncCompressPermissionState } from "./compress-permission"
 import { checkSession, ensureSessionInitialized, syncToolCache } from "./state"
 import { cacheSystemPromptTokens } from "./ui/utils"
 

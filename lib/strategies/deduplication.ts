@@ -6,7 +6,7 @@ import {
     isFilePathProtected,
     isToolNameProtected,
 } from "../protected-patterns"
-import { getTotalToolTokens } from "./utils"
+import { getTotalToolTokens } from "../token-utils"
 
 /**
  * Deduplication strategy - prunes older tool calls that have identical

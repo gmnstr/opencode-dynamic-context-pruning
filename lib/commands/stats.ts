@@ -8,7 +8,7 @@ import type { SessionState, WithParts } from "../state"
 import { sendIgnoredMessage } from "../ui/notification"
 import { formatTokenCount } from "../ui/utils"
 import { loadAllSessionStats, type AggregatedStats } from "../state/persistence"
-import { getCurrentParams } from "../strategies/utils"
+import { getCurrentParams } from "../token-utils"
 
 export interface StatsCommandContext {
     client: any

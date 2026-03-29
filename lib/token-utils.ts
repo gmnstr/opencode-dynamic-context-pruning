@@ -1,8 +1,8 @@
-import { SessionState, WithParts } from "../state"
+import { SessionState, WithParts } from "./state"
 import { AssistantMessage, UserMessage } from "@opencode-ai/sdk/v2"
-import { Logger } from "../logger"
+import { Logger } from "./logger"
 import { countTokens as anthropicCountTokens } from "@anthropic-ai/tokenizer"
-import { getLastUserMessage } from "../shared-utils"
+import { getLastUserMessage } from "./messages/query"
 
 export function getCurrentTokenUsage(state: SessionState, messages: WithParts[]): number {
     for (let i = messages.length - 1; i >= 0; i--) {

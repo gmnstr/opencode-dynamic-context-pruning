@@ -1,5 +1,5 @@
 import type { SessionState, WithParts } from "./state"
-import { isIgnoredUserMessage } from "./messages/utils"
+import { isIgnoredUserMessage } from "./messages/query"
 
 const MESSAGE_REF_REGEX = /^m(\d{4})$/
 const BLOCK_REF_REGEX = /^b([1-9]\d*)$/

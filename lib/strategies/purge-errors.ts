@@ -6,7 +6,7 @@ import {
     isFilePathProtected,
     isToolNameProtected,
 } from "../protected-patterns"
-import { getTotalToolTokens } from "./utils"
+import { getTotalToolTokens } from "../token-utils"
 
 /**
  * Purge Errors strategy - prunes tool inputs for tools that errored

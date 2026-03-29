@@ -1,5 +1,5 @@
 import type { SessionState } from "../state"
-import { isIgnoredUserMessage } from "../messages/utils"
+import { isIgnoredUserMessage } from "../messages/query"
 import {
     getFilePathsFromParameters,
     isFilePathProtected,

@@ -5,9 +5,19 @@ import type {
     SessionState,
     WithParts,
 } from "./types"
-import { isMessageCompacted, messageHasCompress } from "../shared-utils"
-import { isIgnoredUserMessage } from "../messages/utils"
-import { countTokens } from "../strategies/utils"
+import { isIgnoredUserMessage, messageHasCompress } from "../messages/query"
+import { countTokens } from "../token-utils"
+
+export const isMessageCompacted = (state: SessionState, msg: WithParts): boolean => {
+    if (msg.info.time.created < state.lastCompaction) {
+        return true
+    }
+    const pruneEntry = state.prune.messages.byMessageId.get(msg.info.id)
+    if (pruneEntry && pruneEntry.activeBlockIds.length > 0) {
+        return true
+    }
+    return false
+}
 
 interface PersistedPruneMessagesState {
     byMessageId?: Record<string, PrunedMessageEntry>

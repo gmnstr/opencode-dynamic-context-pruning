@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import type { ToolContext } from "./types"
-import { countTokens } from "../strategies/utils"
+import { countTokens } from "../token-utils"
 import { MESSAGE_FORMAT_OVERLAY } from "../prompts/internal-overlays"
 import { formatIssues, formatResult, resolveMessages, validateArgs } from "./message-utils"
 import { finalizeSession, prepareSession, type NotificationEntry } from "./pipeline"

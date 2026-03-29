@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { isIgnoredUserMessage } from "../lib/messages/utils"
+import { isIgnoredUserMessage } from "../lib/messages/query"
 import type { WithParts } from "../lib/state"
 
 function buildMessage(role: "user" | "assistant", parts: WithParts["parts"]): WithParts {

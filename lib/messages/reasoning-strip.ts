@@ -1,5 +1,5 @@
 import type { WithParts } from "../state"
-import { getLastUserMessage } from "../shared-utils"
+import { getLastUserMessage } from "./query"
 
 /**
  * Mirrors opencode's differentModel handling by preserving part content while

@@ -11,7 +11,7 @@ import {
     loadPruneMap,
     collectTurnNudgeAnchors,
 } from "./utils"
-import { getLastUserMessage } from "../shared-utils"
+import { getLastUserMessage } from "../messages/query"
 
 export const checkSession = async (
     client: any,

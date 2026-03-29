@@ -11,9 +11,9 @@ import type { Logger } from "../logger"
 import type { SessionState, WithParts } from "../state"
 import type { PluginConfig } from "../config"
 import { sendIgnoredMessage } from "../ui/notification"
-import { getCurrentParams } from "../strategies/utils"
+import { getCurrentParams } from "../token-utils"
 import { buildCompressedBlockGuidance } from "../messages/inject/utils"
-import { isIgnoredUserMessage } from "../messages/utils"
+import { isIgnoredUserMessage } from "../messages/query"
 
 const MANUAL_MODE_ON = "Manual mode is now ON. Use /dcp compress to trigger context tools manually."
 

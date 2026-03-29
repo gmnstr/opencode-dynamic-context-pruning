@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import type { ToolContext } from "./types"
-import { countTokens } from "../strategies/utils"
+import { countTokens } from "../token-utils"
 import { RANGE_FORMAT_OVERLAY } from "../prompts/internal-overlays"
 import { finalizeSession, prepareSession, type NotificationEntry } from "./pipeline"
 import { appendProtectedTools, appendProtectedUserMessages } from "./protected-content"

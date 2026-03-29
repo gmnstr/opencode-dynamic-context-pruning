@@ -13,10 +13,9 @@ import {
     appendToLastTextPart,
     createSyntheticTextPart,
     hasContent,
-    isIgnoredUserMessage,
 } from "../utils"
-import { getLastUserMessage } from "../../shared-utils"
-import { getCurrentTokenUsage } from "../../strategies/utils"
+import { getLastUserMessage, isIgnoredUserMessage } from "../query"
+import { getCurrentTokenUsage } from "../../token-utils"
 import { getActiveSummaryTokenUsage } from "../../state/utils"
 
 const MESSAGE_MODE_NUDGE_PRIORITY: MessagePriority = "high"

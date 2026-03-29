@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto"
-import type { PluginConfig } from "../config"
-import { isMessageCompacted } from "../shared-utils"
 import type { SessionState, WithParts } from "../state"
+import { isMessageCompacted } from "../state/utils"
 import type { UserMessage } from "@opencode-ai/sdk/v2"
 
 const SUMMARY_ID_HASH_LENGTH = 16
@@ -169,34 +168,6 @@ export function buildToolIdList(state: SessionState, messages: WithParts[]): str
     }
     state.toolIdList = toolIds
     return toolIds
-}
-
-export const isIgnoredUserMessage = (message: WithParts): boolean => {
-    if (message.info.role !== "user") {
-        return false
-    }
-
-    const parts = Array.isArray(message.parts) ? message.parts : []
-    if (parts.length === 0) {
-        return true
-    }
-
-    for (const part of parts) {
-        if (!(part as any).ignored) {
-            return false
-        }
-    }
-
-    return true
-}
-
-export function isProtectedUserMessage(config: PluginConfig, message: WithParts): boolean {
-    return (
-        config.compress.mode === "message" &&
-        config.compress.protectUserMessages &&
-        message.info.role === "user" &&
-        !isIgnoredUserMessage(message)
-    )
 }
 
 export const replaceBlockIdsWithBlocked = (text: string): string => {

@@ -12,10 +12,11 @@ import type { SessionState, WithParts, ToolParameterEntry } from "../state"
 import type { PluginConfig } from "../config"
 import { sendIgnoredMessage } from "../ui/notification"
 import { formatPrunedItemsList } from "../ui/utils"
-import { getCurrentParams, getTotalToolTokens } from "../strategies/utils"
-import { buildToolIdList, isIgnoredUserMessage } from "../messages/utils"
+import { getCurrentParams, getTotalToolTokens } from "../token-utils"
+import { isIgnoredUserMessage } from "../messages/query"
+import { buildToolIdList } from "../messages/utils"
 import { saveSessionState } from "../state/persistence"
-import { isMessageCompacted } from "../shared-utils"
+import { isMessageCompacted } from "../state/utils"
 import {
     getFilePathsFromParameters,
     isFilePathProtected,

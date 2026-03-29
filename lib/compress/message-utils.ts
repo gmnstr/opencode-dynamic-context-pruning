@@ -1,7 +1,7 @@
 import type { PluginConfig } from "../config"
 import type { SessionState } from "../state"
 import { parseBoundaryId } from "../message-ids"
-import { isIgnoredUserMessage, isProtectedUserMessage } from "../messages/utils"
+import { isIgnoredUserMessage, isProtectedUserMessage } from "../messages/query"
 import { resolveAnchorMessageId, resolveBoundaryIds, resolveSelection } from "./search"
 import { COMPRESSED_BLOCK_HEADER } from "./state"
 import type {

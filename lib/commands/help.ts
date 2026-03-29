@@ -6,9 +6,9 @@
 import type { Logger } from "../logger"
 import type { PluginConfig } from "../config"
 import type { SessionState, WithParts } from "../state"
-import { compressPermission } from "../shared-utils"
+import { compressPermission } from "../compress-permission"
 import { sendIgnoredMessage } from "../ui/notification"
-import { getCurrentParams } from "../strategies/utils"
+import { getCurrentParams } from "../token-utils"
 
 export interface HelpCommandContext {
     client: any

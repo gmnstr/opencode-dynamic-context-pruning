@@ -1,6 +1,6 @@
 import { SessionState, ToolParameterEntry, WithParts } from "../state"
-import { countTokens } from "../strategies/utils"
-import { isIgnoredUserMessage } from "../messages/utils"
+import { countTokens } from "../token-utils"
+import { isIgnoredUserMessage } from "../messages/query"
 
 function extractParameterKey(tool: string, parameters: any): string {
     if (!parameters) return ""
