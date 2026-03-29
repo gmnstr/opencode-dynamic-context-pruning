@@ -29,6 +29,7 @@ export interface DcpAllTimeStats {
 export interface DcpContextSnapshot {
     sessionID?: string
     breakdown: DcpContextBreakdown
+    activeSummaryTokens: number
     persisted: DcpPersistedSummary
     messageStatuses: DcpMessageStatus[]
     allTimeStats: DcpAllTimeStats

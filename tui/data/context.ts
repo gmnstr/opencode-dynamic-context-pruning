@@ -7,6 +7,7 @@ import {
 } from "../../lib/state"
 import {
     findLastCompactionTimestamp,
+    getActiveSummaryTokenUsage,
     loadPruneMap,
     loadPruneMessagesState,
 } from "../../lib/state/utils"
@@ -24,6 +25,7 @@ export const createPlaceholderContextSnapshot = (
 ): DcpContextSnapshot => ({
     sessionID,
     breakdown: emptyBreakdown(),
+    activeSummaryTokens: 0,
     persisted: {
         available: false,
         activeBlockCount: 0,
@@ -38,7 +40,7 @@ export const createPlaceholderContextSnapshot = (
 function cleanBlockSummary(raw: string): string {
     return raw
         .replace(/^\s*\[Compressed conversation section\]\s*/i, "")
-        .replace(/\s*b\d+<\/dcp-message-id>\s*$/i, "")
+        .replace(/(?:\r?\n)*<dcp-message-id>b\d+<\/dcp-message-id>\s*$/i, "")
         .trim()
 }
 
@@ -103,6 +105,7 @@ const loadContextSnapshot = async (
     return {
         sessionID,
         breakdown,
+        activeSummaryTokens: getActiveSummaryTokenUsage(state),
         persisted: {
             available: !!persisted,
             activeBlockCount: state.prune.messages.activeBlockIds.size,

@@ -395,9 +395,14 @@ const SidebarContext = (props: {
             <box width="100%" flexDirection="column" gap={0} paddingTop={1}>
                 {blocks().length > 0 ? (
                     <>
-                        <text fg={props.palette.text}>
-                            <b>Compressed Topics</b>
-                        </text>
+                        <box width="100%" flexDirection="row" justifyContent="space-between">
+                            <text fg={props.palette.text}>
+                                <b>Compressed Summaries</b>
+                            </text>
+                            <text fg={toneColor(props.palette, "accent")}>
+                                <b>{`~${compactTokenCount(snapshot().activeSummaryTokens)}`}</b>
+                            </text>
+                        </box>
                         {blocks().map((block) => (
                             <box flexDirection="row" width="100%" height={1}>
                                 <box flexGrow={1} flexShrink={1} overflow="hidden" height={1}>
