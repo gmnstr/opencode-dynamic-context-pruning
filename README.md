@@ -9,7 +9,15 @@ Automatically reduces token usage in OpenCode by managing conversation context.
 
 ## Installation
 
-Add to your OpenCode config:
+Install with the OpenCode CLI:
+
+```bash
+opencode plugin @tarquinen/opencode-dcp@latest --global
+```
+
+This installs the package and adds it to your global OpenCode config.
+
+Or add it to your OpenCode config manually:
 
 ```jsonc
 // opencode.jsonc
