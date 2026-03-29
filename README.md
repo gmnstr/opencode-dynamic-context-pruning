@@ -12,10 +12,10 @@ Automatically reduces token usage in OpenCode by managing conversation context.
 Install with the OpenCode CLI:
 
 ```bash
-opencode plugin @tarquinen/opencode-dcp@latest --global
+opencode plugin @tarquinen/opencode-dcp@beta --global
 ```
 
-This installs the package and adds it to your global OpenCode config.
+This installs the package and adds it to your global OpenCode config files.
 
 Or add it to your OpenCode configs manually:
 
