@@ -7,7 +7,7 @@ import { createSummaryRoute } from "./routes/summary"
 import { NAMES } from "./shared/names"
 
 const tui: TuiPlugin = async (api) => {
-    const config = getConfigForDirectory(process.cwd(), (title, message) => {
+    const config = getConfigForDirectory(api.state.path.directory, (title, message) => {
         api.ui.toast({
             title,
             message,

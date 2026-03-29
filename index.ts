@@ -20,11 +20,6 @@ import { configureClientAuth, isSecureMode } from "./lib/auth"
 
 const id = "opencode-dynamic-context-pruning"
 
-let tuiPlugin: Record<string, unknown> = {}
-try {
-    tuiPlugin = (await import("./tui/index")).default
-} catch {}
-
 const server: Plugin = (async (ctx) => {
     const config = getConfig(ctx)
 
