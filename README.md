@@ -17,6 +17,26 @@ opencode plugin @tarquinen/opencode-dcp@latest --global
 
 This installs the package and adds it to your global OpenCode config.
 
+Or add it to your OpenCode configs manually:
+
+```jsonc
+// opencode.jsonc
+{
+    "plugin": ["@tarquinen/opencode-dcp@latest"],
+}
+```
+
+```jsonc
+// tui.jsonc
+{
+    "plugin": ["@tarquinen/opencode-dcp@latest"],
+}
+```
+
+Using `@latest` ensures you always get the newest version automatically when OpenCode starts.
+
+Restart OpenCode. The plugin will automatically start optimizing your sessions.
+
 ## How It Works
 
 DCP reduces context size through a compress tool and automatic cleanup. Your session history is never modified — DCP replaces pruned content with placeholders before sending requests to your LLM.
