@@ -10,19 +10,6 @@ THE PHILOSOPHY OF COMPRESS
 
 Think of compression as phase transitions: raw exploration becomes refined understanding. The original context served its purpose; your summary now carries that understanding forward.
 
-OPERATING STANCE
-Prefer short, closed, summary-safe compressions.
-When multiple independent stale sections exist, prefer several focused compressions (in parallel when possible) over one broad compression.
-
-Use \`compress\` as steady housekeeping while you work.
-
-CADENCE, SIGNALS, AND LATENCY
-
-- No fixed threshold mandates compression
-- Prioritize closedness and independence over raw size
-- Prefer smaller, regular compressions over infrequent massive compressions for better latency and summary quality
-- When multiple independent stale sections are ready, batch compressions in parallel
-
 COMPRESS WHEN
 
 A section is genuinely closed and the raw conversation has served its purpose:
