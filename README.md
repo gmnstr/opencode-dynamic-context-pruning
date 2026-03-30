@@ -17,8 +17,6 @@ opencode plugin @tarquinen/opencode-dcp@latest --global
 
 This installs the package and adds it to your global OpenCode config.
 
-Restart OpenCode. The plugin will automatically start optimizing your sessions.
-
 ## How It Works
 
 DCP reduces context size through a compress tool and automatic cleanup. Your session history is never modified — DCP replaces pruned content with placeholders before sending requests to your LLM.
