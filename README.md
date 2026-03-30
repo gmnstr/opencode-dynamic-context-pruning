@@ -15,27 +15,7 @@ Install from the CLI:
 opencode plugin @tarquinen/opencode-dcp@beta --global
 ```
 
-This installs the package and adds it to your global OpenCode config files.
-
-Or add it to your OpenCode configs manually:
-
-```jsonc
-// opencode.jsonc
-{
-    "plugin": ["@tarquinen/opencode-dcp@beta"],
-}
-```
-
-```jsonc
-// tui.jsonc
-{
-    "plugin": ["@tarquinen/opencode-dcp@beta"],
-}
-```
-
-Using `@beta` keeps you on the current prerelease channel when OpenCode starts.
-
-Restart OpenCode. The plugin will automatically start optimizing your sessions.
+This installs the package and adds it to your global OpenCode config.
 
 ## How It Works
 
