@@ -58,7 +58,6 @@ const plugin: Plugin = (async (ctx) => {
             config,
             prompts,
         ),
-
         "experimental.chat.messages.transform": createChatMessageTransformHandler(
             ctx.client,
             state,
@@ -69,7 +68,6 @@ const plugin: Plugin = (async (ctx) => {
         ) as any,
         "chat.message": createChatMessageHandler(state, logger, config, hostPermissions),
         "experimental.text.complete": createTextCompleteHandler(),
-        event: createEventHandler(state, logger),
         "command.execute.before": createCommandExecuteHandler(
             ctx.client,
             state,
@@ -78,6 +76,7 @@ const plugin: Plugin = (async (ctx) => {
             ctx.directory,
             hostPermissions,
         ),
+        event: createEventHandler(state, logger),
         tool: {
             ...(config.compress.permission !== "deny" && {
                 compress:
