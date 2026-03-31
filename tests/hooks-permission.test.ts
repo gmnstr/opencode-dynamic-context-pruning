@@ -159,7 +159,7 @@ test("text complete strips hallucinated metadata tags", async () => {
     assert.equal(output.text, "alpha  omega")
 })
 
-test("event hook attaches durations to matching blocks by call id", async () => {
+test("event hook attaches durations to matching blocks by message and call id", async () => {
     const state = createSessionState()
     state.sessionId = "session-1"
     const handler = createEventHandler(state, new Logger(false))
@@ -492,8 +492,8 @@ test("event hook queues duration updates until the matching session is loaded", 
         },
     })
 
-    assert.equal(liveState.compressionTiming.pendingByCallId.has("call-remote"), true)
-    assert.equal(liveState.compressionTiming.startsByCallId.has("call-remote"), false)
+    assert.equal(liveState.compressionTiming.pendingByCallId.has("message-1:call-remote"), true)
+    assert.equal(liveState.compressionTiming.startsByCallId.has("message-1:call-remote"), false)
 
     await ensureSessionInitialized(
         {
@@ -520,5 +520,155 @@ test("event hook queues duration updates until the matching session is loaded", 
     )
 
     assert.equal(liveState.prune.messages.blocksById.get(1)?.durationMs, 250)
-    assert.equal(liveState.compressionTiming.pendingByCallId.has("call-remote"), false)
+    assert.equal(liveState.compressionTiming.pendingByCallId.has("message-1:call-remote"), false)
+})
+
+test("event hook keeps same call id distinct across message ids", async () => {
+    const state = createSessionState()
+    state.sessionId = "session-1"
+    const handler = createEventHandler(state, new Logger(false))
+
+    state.prune.messages.blocksById.set(1, {
+        blockId: 1,
+        runId: 1,
+        active: true,
+        deactivatedByUser: false,
+        compressedTokens: 0,
+        summaryTokens: 0,
+        durationMs: 0,
+        mode: "message",
+        topic: "one",
+        batchTopic: "one",
+        startId: "m0001",
+        endId: "m0001",
+        anchorMessageId: "msg-a",
+        compressMessageId: "message-1",
+        compressCallId: "shared-call",
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: [],
+        directToolIds: [],
+        effectiveMessageIds: ["msg-a"],
+        effectiveToolIds: [],
+        createdAt: 1,
+        summary: "a",
+    })
+    state.prune.messages.blocksById.set(2, {
+        blockId: 2,
+        runId: 2,
+        active: true,
+        deactivatedByUser: false,
+        compressedTokens: 0,
+        summaryTokens: 0,
+        durationMs: 0,
+        mode: "message",
+        topic: "two",
+        batchTopic: "two",
+        startId: "m0002",
+        endId: "m0002",
+        anchorMessageId: "msg-b",
+        compressMessageId: "message-2",
+        compressCallId: "shared-call",
+        includedBlockIds: [],
+        consumedBlockIds: [],
+        parentBlockIds: [],
+        directMessageIds: [],
+        directToolIds: [],
+        effectiveMessageIds: ["msg-b"],
+        effectiveToolIds: [],
+        createdAt: 2,
+        summary: "b",
+    })
+
+    await handler({
+        event: {
+            type: "message.part.updated",
+            properties: {
+                part: {
+                    type: "tool",
+                    tool: "compress",
+                    callID: "shared-call",
+                    messageID: "message-1",
+                    sessionID: "session-1",
+                    state: {
+                        status: "pending",
+                        input: {},
+                        raw: "",
+                    },
+                },
+            },
+            time: 100,
+        },
+    })
+
+    await handler({
+        event: {
+            type: "message.part.updated",
+            properties: {
+                part: {
+                    type: "tool",
+                    tool: "compress",
+                    callID: "shared-call",
+                    messageID: "message-2",
+                    sessionID: "session-1",
+                    state: {
+                        status: "pending",
+                        input: {},
+                        raw: "",
+                    },
+                },
+            },
+            time: 200,
+        },
+    })
+
+    await handler({
+        event: {
+            type: "message.part.updated",
+            properties: {
+                part: {
+                    type: "tool",
+                    tool: "compress",
+                    callID: "shared-call",
+                    messageID: "message-2",
+                    sessionID: "session-1",
+                    state: {
+                        status: "completed",
+                        input: {},
+                        output: "done",
+                        title: "",
+                        metadata: {},
+                        time: { start: 350, end: 500 },
+                    },
+                },
+            },
+        },
+    })
+
+    await handler({
+        event: {
+            type: "message.part.updated",
+            properties: {
+                part: {
+                    type: "tool",
+                    tool: "compress",
+                    callID: "shared-call",
+                    messageID: "message-1",
+                    sessionID: "session-1",
+                    state: {
+                        status: "completed",
+                        input: {},
+                        output: "done",
+                        title: "",
+                        metadata: {},
+                        time: { start: 450, end: 700 },
+                    },
+                },
+            },
+        },
+    })
+
+    assert.equal(state.prune.messages.blocksById.get(1)?.durationMs, 350)
+    assert.equal(state.prune.messages.blocksById.get(2)?.durationMs, 150)
 })

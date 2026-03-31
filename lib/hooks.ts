@@ -18,6 +18,7 @@ import { renderSystemPrompt, type PromptStore } from "./prompts"
 import { buildProtectedToolsExtension } from "./prompts/extensions/system"
 import {
     applyPendingCompressionDurations,
+    buildCompressionTimingKey,
     consumeCompressionStart,
     resolveCompressionDuration,
 } from "./compress/timing"
@@ -291,16 +292,18 @@ export function createEventHandler(state: SessionState, logger: Logger) {
         }
 
         if (part.state.status === "pending") {
-            if (typeof part.callID !== "string") {
+            if (typeof part.callID !== "string" || typeof part.messageID !== "string") {
                 return
             }
 
             const startedAt = eventTime ?? Date.now()
-            if (state.compressionTiming.startsByCallId.has(part.callID)) {
+            const key = buildCompressionTimingKey(part.messageID, part.callID)
+            if (state.compressionTiming.startsByCallId.has(key)) {
                 return
             }
-            state.compressionTiming.startsByCallId.set(part.callID, startedAt)
+            state.compressionTiming.startsByCallId.set(key, startedAt)
             logger.debug("Recorded compression start", {
+                messageID: part.messageID,
                 callID: part.callID,
                 startedAt,
             })
@@ -308,17 +311,19 @@ export function createEventHandler(state: SessionState, logger: Logger) {
         }
 
         if (part.state.status === "completed") {
-            if (typeof part.callID !== "string") {
+            if (typeof part.callID !== "string" || typeof part.messageID !== "string") {
                 return
             }
 
-            const start = consumeCompressionStart(state, part.callID)
+            const key = buildCompressionTimingKey(part.messageID, part.callID)
+            const start = consumeCompressionStart(state, part.messageID, part.callID)
             const durationMs = resolveCompressionDuration(start, eventTime, part.state.time)
             if (typeof durationMs !== "number") {
                 return
             }
 
-            state.compressionTiming.pendingByCallId.set(part.callID, {
+            state.compressionTiming.pendingByCallId.set(key, {
+                messageId: part.messageID,
                 callId: part.callID,
                 durationMs,
             })
@@ -331,6 +336,7 @@ export function createEventHandler(state: SessionState, logger: Logger) {
             await saveSessionState(state, logger)
 
             logger.info("Attached compression time to blocks", {
+                messageID: part.messageID,
                 callID: part.callID,
                 blocks: updates,
                 durationMs,
@@ -342,8 +348,10 @@ export function createEventHandler(state: SessionState, logger: Logger) {
             return
         }
 
-        if (typeof part.callID === "string") {
-            state.compressionTiming.startsByCallId.delete(part.callID)
+        if (typeof part.callID === "string" && typeof part.messageID === "string") {
+            state.compressionTiming.startsByCallId.delete(
+                buildCompressionTimingKey(part.messageID, part.callID),
+            )
         }
     }
 }
