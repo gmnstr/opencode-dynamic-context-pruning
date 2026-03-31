@@ -107,24 +107,14 @@ export const appendToTextPart = (part: TextPart, injection: string): boolean => 
     return true
 }
 
-export const appendToLastToolPart = (message: WithParts, tag: string): boolean => {
-    const toolPart = findLastToolPart(message)
-    if (!toolPart) {
-        return false
-    }
-
-    return appendToToolPart(toolPart, tag)
-}
-
-const findLastToolPart = (message: WithParts): ToolPart | null => {
-    for (let i = message.parts.length - 1; i >= 0; i--) {
-        const part = message.parts[i]
+export const appendToAllToolParts = (message: WithParts, tag: string): boolean => {
+    let injected = false
+    for (const part of message.parts) {
         if (part.type === "tool") {
-            return part
+            injected = appendToToolPart(part, tag) || injected
         }
     }
-
-    return null
+    return injected
 }
 
 export const appendToToolPart = (part: ToolPart, tag: string): boolean => {

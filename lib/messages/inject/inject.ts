@@ -15,7 +15,7 @@ import { saveSessionState } from "../../state/persistence"
 import {
     appendToTextPart,
     appendToLastTextPart,
-    appendToLastToolPart,
+    appendToAllToolParts,
     createSyntheticTextPart,
     hasContent,
 } from "../utils"
@@ -196,7 +196,7 @@ export const injectMessageIds = (
             continue
         }
 
-        if (appendToLastToolPart(message, tag)) {
+        if (appendToAllToolParts(message, tag)) {
             continue
         }
 
