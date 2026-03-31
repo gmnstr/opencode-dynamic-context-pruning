@@ -113,7 +113,6 @@ export function createCompressMessageTool(ctx: ToolContext): ReturnType<typeof t
                         compressMessageId: toolCtx.messageID,
                         compressCallId: callId,
                         summaryTokens,
-                        durationMs: 0,
                     },
                     plan.selection,
                     plan.anchorMessageId,

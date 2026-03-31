@@ -105,5 +105,4 @@ export interface CompressionStateInput {
     compressMessageId: string
     compressCallId?: string
     summaryTokens: number
-    durationMs: number
 }

@@ -154,7 +154,7 @@ test("text complete strips hallucinated metadata tags", async () => {
     assert.equal(output.text, "alpha  omega")
 })
 
-test("event hook records compress input generation duration", async () => {
+test("event hook records compression start timing", async () => {
     const state = createSessionState()
     state.sessionId = "session-1"
     const handler = createEventHandler(state, new Logger(false))
@@ -205,8 +205,10 @@ test("event hook records compress input generation duration", async () => {
         Date.now = originalNow
     }
 
-    assert.equal(state.compressionDurations.get("call-1"), 225)
-    assert.equal(state.compressionStarts.has("call-1"), false)
+    assert.deepEqual(state.compressionStarts.get("call-1"), {
+        messageId: "message-1",
+        startedAt: 100,
+    })
 })
 
 test("event hook attaches durations to matching blocks by call id", async () => {
@@ -400,7 +402,6 @@ test("event hook attaches durations to matching blocks by call id", async () => 
 
     assert.equal(state.prune.messages.blocksById.get(1)?.durationMs, 225)
     assert.equal(state.prune.messages.blocksById.get(2)?.durationMs, 310)
-    assert.equal(state.compressionDurations.size, 0)
 })
 
 test("event hook falls back to completed runtime when running duration missing", async () => {
@@ -459,7 +460,6 @@ test("event hook falls back to completed runtime when running duration missing",
     })
 
     assert.equal(state.prune.messages.blocksById.get(1)?.durationMs, 440)
-    assert.equal(state.compressionDurations.size, 0)
 })
 
 test("event hook ignores non-compress tool parts", async () => {
@@ -507,5 +507,5 @@ test("event hook ignores non-compress tool parts", async () => {
         },
     })
 
-    assert.equal(state.compressionDurations.size, 0)
+    assert.equal(state.compressionStarts.size, 0)
 })

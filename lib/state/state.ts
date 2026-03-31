@@ -82,7 +82,6 @@ export function createSessionState(): SessionState {
             totalPruneTokens: 0,
         },
         compressionStarts: new Map<string, CompressionStart>(),
-        compressionDurations: new Map<string, number>(),
         toolParameters: new Map<string, ToolParameterEntry>(),
         subAgentResultCache: new Map<string, string>(),
         toolIdList: [],

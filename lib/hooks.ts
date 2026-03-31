@@ -16,7 +16,7 @@ import {
 } from "./messages"
 import { renderSystemPrompt, type PromptStore } from "./prompts"
 import { buildProtectedToolsExtension } from "./prompts/extensions/system"
-import { attachCompressionDuration, recordCompressionDuration } from "./compress/state"
+import { attachCompressionDuration } from "./compress/state"
 import {
     applyPendingManualTrigger,
     handleContextCommand,
@@ -308,69 +308,45 @@ export function createEventHandler(state: SessionState, logger: Logger) {
             return
         }
 
-        if (part.state.status === "running") {
-            if (typeof part.callID !== "string") {
-                return
-            }
-
-            const start = state.compressionStarts.get(part.callID)
-            if (!start) {
-                return
-            }
-
-            const runningAt =
-                typeof part.state.time?.start === "number" && Number.isFinite(part.state.time.start)
-                    ? part.state.time.start
-                    : eventTime
-            if (typeof runningAt !== "number") {
-                return
-            }
-
-            state.compressionStarts.delete(part.callID)
-            const durationMs = Math.max(0, runningAt - start.startedAt)
-            recordCompressionDuration(state, part.callID, durationMs)
-
-            logger.info("Recorded compression time", {
-                callID: part.callID,
-                messageID: start.messageId,
-                durationMs,
-            })
-            return
-        }
-
         if (part.state.status === "completed") {
             if (typeof part.callID !== "string" || typeof part.messageID !== "string") {
                 return
             }
 
-            if (!state.compressionDurations.has(part.callID)) {
-                const start = state.compressionStarts.get(part.callID)
-                const runningAt =
-                    typeof part.state.time?.start === "number" &&
-                    Number.isFinite(part.state.time.start)
-                        ? part.state.time.start
-                        : eventTime
+            const start = state.compressionStarts.get(part.callID)
+            state.compressionStarts.delete(part.callID)
 
-                if (start && typeof runningAt === "number") {
-                    state.compressionStarts.delete(part.callID)
-                    const durationMs = Math.max(0, runningAt - start.startedAt)
-                    recordCompressionDuration(state, part.callID, durationMs)
-                } else {
-                    const toolStart = part.state.time?.start
-                    const toolEnd = part.state.time?.end
-                    if (
-                        typeof toolStart === "number" &&
-                        Number.isFinite(toolStart) &&
-                        typeof toolEnd === "number" &&
-                        Number.isFinite(toolEnd)
-                    ) {
-                        const durationMs = Math.max(0, toolEnd - toolStart)
-                        recordCompressionDuration(state, part.callID, durationMs)
-                    }
-                }
+            const runningAt =
+                typeof part.state.time?.start === "number" && Number.isFinite(part.state.time.start)
+                    ? part.state.time.start
+                    : eventTime
+            const pendingToRunningMs =
+                start && typeof runningAt === "number"
+                    ? Math.max(0, runningAt - start.startedAt)
+                    : undefined
+
+            const toolStart = part.state.time?.start
+            const toolEnd = part.state.time?.end
+            const runtimeMs =
+                typeof toolStart === "number" &&
+                Number.isFinite(toolStart) &&
+                typeof toolEnd === "number" &&
+                Number.isFinite(toolEnd)
+                    ? Math.max(0, toolEnd - toolStart)
+                    : undefined
+
+            const durationMs =
+                typeof pendingToRunningMs === "number" ? pendingToRunningMs : runtimeMs
+            if (typeof durationMs !== "number") {
+                return
             }
 
-            const updates = attachCompressionDuration(state, part.callID, part.messageID)
+            const updates = attachCompressionDuration(
+                state,
+                part.callID,
+                part.messageID,
+                durationMs,
+            )
             if (updates === 0) {
                 return
             }
@@ -379,6 +355,7 @@ export function createEventHandler(state: SessionState, logger: Logger) {
                 callID: part.callID,
                 messageID: part.messageID,
                 blocks: updates,
+                durationMs,
             })
 
             saveSessionState(state, logger).catch((error) => {
@@ -389,9 +366,12 @@ export function createEventHandler(state: SessionState, logger: Logger) {
             return
         }
 
+        if (part.state.status === "running") {
+            return
+        }
+
         if (typeof part.callID === "string") {
             state.compressionStarts.delete(part.callID)
-            state.compressionDurations.delete(part.callID)
         }
     }
 }

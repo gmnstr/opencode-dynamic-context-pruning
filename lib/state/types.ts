@@ -104,7 +104,6 @@ export interface SessionState {
     nudges: Nudges
     stats: SessionStats
     compressionStarts: Map<string, CompressionStart>
-    compressionDurations: Map<string, number>
     toolParameters: Map<string, ToolParameterEntry>
     subAgentResultCache: Map<string, string>
     toolIdList: string[]

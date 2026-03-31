@@ -26,25 +26,15 @@ export function allocateRunId(state: SessionState): number {
     return next
 }
 
-export function recordCompressionDuration(
-    state: SessionState,
-    callId: string,
-    durationMs: number,
-): void {
-    state.compressionDurations.set(callId, durationMs)
-}
-
 export function attachCompressionDuration(
     state: SessionState,
     callId: string,
     messageId: string,
+    durationMs: number,
 ): number {
-    const durationMs = state.compressionDurations.get(callId)
     if (typeof durationMs !== "number" || !Number.isFinite(durationMs)) {
         return 0
     }
-
-    state.compressionDurations.delete(callId)
 
     let updates = 0
     for (const block of state.prune.messages.blocksById.values()) {
@@ -128,7 +118,7 @@ export function applyCompressionState(
         deactivatedByUser: false,
         compressedTokens: 0,
         summaryTokens: input.summaryTokens,
-        durationMs: input.durationMs,
+        durationMs: 0,
         mode: input.mode,
         topic: input.topic,
         batchTopic: input.batchTopic,

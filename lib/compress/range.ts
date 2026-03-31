@@ -154,7 +154,6 @@ export function createCompressRangeTool(ctx: ToolContext): ReturnType<typeof too
                         compressMessageId: toolCtx.messageID,
                         compressCallId: callId,
                         summaryTokens,
-                        durationMs: 0,
                     },
                     preparedPlan.selection,
                     preparedPlan.anchorMessageId,
