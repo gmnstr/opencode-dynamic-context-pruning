@@ -40,5 +40,6 @@ tests/results/
 test-update.ts
 repomix-output.xml
 scripts/
+tui/node_modules/
 tui/package-lock.json
 tui/types/
