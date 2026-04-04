@@ -1,5 +1,6 @@
 import type { PluginConfig } from "../config"
 import type { WithParts } from "../state"
+import { isMessageWithInfo } from "./shape"
 
 export const getLastUserMessage = (
     messages: WithParts[],
@@ -8,6 +9,9 @@ export const getLastUserMessage = (
     const start = startIndex ?? messages.length - 1
     for (let i = start; i >= 0; i--) {
         const msg = messages[i]
+        if (!isMessageWithInfo(msg)) {
+            continue
+        }
         if (msg.info.role === "user" && !isIgnoredUserMessage(msg)) {
             return msg
         }
@@ -16,6 +20,10 @@ export const getLastUserMessage = (
 }
 
 export const messageHasCompress = (message: WithParts): boolean => {
+    if (!isMessageWithInfo(message)) {
+        return false
+    }
+
     if (message.info.role !== "assistant") {
         return false
     }
@@ -28,6 +36,10 @@ export const messageHasCompress = (message: WithParts): boolean => {
 }
 
 export const isIgnoredUserMessage = (message: WithParts): boolean => {
+    if (!isMessageWithInfo(message)) {
+        return false
+    }
+
     if (message.info.role !== "user") {
         return false
     }
@@ -47,6 +59,10 @@ export const isIgnoredUserMessage = (message: WithParts): boolean => {
 }
 
 export function isProtectedUserMessage(config: PluginConfig, message: WithParts): boolean {
+    if (!isMessageWithInfo(message)) {
+        return false
+    }
+
     return (
         config.compress.mode === "message" &&
         config.compress.protectUserMessages &&

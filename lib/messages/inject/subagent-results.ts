@@ -1,5 +1,6 @@
 import type { Logger } from "../../logger"
 import type { SessionState, WithParts } from "../../state"
+import { filterProcessableMessages } from "../shape"
 import {
     buildSubagentResultText,
     getSubAgentId,
@@ -12,8 +13,7 @@ async function fetchSubAgentMessages(client: any, sessionId: string): Promise<Wi
         path: { id: sessionId },
     })
 
-    const payload = (response?.data || response) as WithParts[]
-    return Array.isArray(payload) ? payload : []
+    return filterProcessableMessages(response?.data || response)
 }
 
 export const injectExtendedSubAgentResults = async (

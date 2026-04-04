@@ -113,6 +113,44 @@ test("chat message transform strips hallucinated tags even when compress is deni
     assert.equal((output.messages[0]?.parts[0] as any).text, "alpha  omega")
 })
 
+test("chat message transform ignores messages without info instead of crashing", async () => {
+    const state = createSessionState()
+    const logger = new Logger(false)
+    const config = buildConfig("deny")
+    const handler = createChatMessageTransformHandler(
+        { session: { get: async () => ({}) } } as any,
+        state,
+        logger,
+        config,
+        {
+            reload() {},
+            getRuntimePrompts() {
+                return {} as any
+            },
+        } as any,
+        { global: undefined, agents: {} },
+    )
+    const output = {
+        messages: [
+            {
+                role: "user",
+                time: 1,
+                parts: [
+                    {
+                        type: "text",
+                        text: "Carica le skill di laravel",
+                    },
+                ],
+            } as any,
+        ],
+    }
+
+    await handler({}, output as any)
+
+    assert.equal(state.sessionId, null)
+    assert.equal(output.messages.length, 1)
+})
+
 test("command execute exits after effective permission resolves to deny", async () => {
     let sessionMessagesCalls = 0
     const output = { parts: [] as any[] }

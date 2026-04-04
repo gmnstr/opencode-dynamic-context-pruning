@@ -6,9 +6,14 @@ import type {
     WithParts,
 } from "./types"
 import { isIgnoredUserMessage, messageHasCompress } from "../messages/query"
+import { isMessageWithInfo } from "../messages/shape"
 import { countTokens } from "../token-utils"
 
 export const isMessageCompacted = (state: SessionState, msg: WithParts): boolean => {
+    if (!isMessageWithInfo(msg)) {
+        return false
+    }
+
     if (msg.info.time.created < state.lastCompaction) {
         return true
     }
@@ -58,6 +63,9 @@ export async function isSubAgentSession(client: any, sessionID: string): Promise
 export function findLastCompactionTimestamp(messages: WithParts[]): number {
     for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i]
+        if (!isMessageWithInfo(msg)) {
+            continue
+        }
         if (msg.info.role === "assistant" && msg.info.summary === true) {
             return msg.info.time.created
         }
@@ -68,6 +76,9 @@ export function findLastCompactionTimestamp(messages: WithParts[]): number {
 export function countTurns(state: SessionState, messages: WithParts[]): number {
     let turnCount = 0
     for (const msg of messages) {
+        if (!isMessageWithInfo(msg)) {
+            continue
+        }
         if (isMessageCompacted(state, msg)) {
             continue
         }

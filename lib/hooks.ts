@@ -22,6 +22,7 @@ import {
     consumeCompressionStart,
     resolveCompressionDuration,
 } from "./compress/timing"
+import { filterProcessableMessages } from "./messages/shape"
 import {
     applyPendingManualTrigger,
     handleContextCommand,
@@ -103,41 +104,49 @@ export function createChatMessageTransformHandler(
     hostPermissions: HostPermissionSnapshot,
 ) {
     return async (input: {}, output: { messages: WithParts[] }) => {
-        await checkSession(client, state, logger, output.messages, config.manualMode.enabled)
+        const messages = filterProcessableMessages(output.messages)
+        if (messages.length !== output.messages.length) {
+            logger.warn("Skipping messages with unexpected shape during chat transform", {
+                received: output.messages.length,
+                usable: messages.length,
+            })
+        }
 
-        syncCompressPermissionState(state, config, hostPermissions, output.messages)
+        await checkSession(client, state, logger, messages, config.manualMode.enabled)
+
+        syncCompressPermissionState(state, config, hostPermissions, messages)
 
         if (state.isSubAgent && !config.experimental.allowSubAgents) {
             return
         }
 
         stripHallucinations(output.messages)
-        cacheSystemPromptTokens(state, output.messages)
-        assignMessageRefs(state, output.messages)
-        syncCompressionBlocks(state, logger, output.messages)
-        syncToolCache(state, config, logger, output.messages)
-        buildToolIdList(state, output.messages)
-        prune(state, logger, config, output.messages)
+        cacheSystemPromptTokens(state, messages)
+        assignMessageRefs(state, messages)
+        syncCompressionBlocks(state, logger, messages)
+        syncToolCache(state, config, logger, messages)
+        buildToolIdList(state, messages)
+        prune(state, logger, config, messages)
         await injectExtendedSubAgentResults(
             client,
             state,
             logger,
-            output.messages,
+            messages,
             config.experimental.allowSubAgents,
         )
-        const compressionPriorities = buildPriorityMap(config, state, output.messages)
+        const compressionPriorities = buildPriorityMap(config, state, messages)
         prompts.reload()
         injectCompressNudges(
             state,
             config,
             logger,
-            output.messages,
+            messages,
             prompts.getRuntimePrompts(),
             compressionPriorities,
         )
-        injectMessageIds(state, config, output.messages, compressionPriorities)
-        applyPendingManualTrigger(state, output.messages, logger)
-        stripStaleMetadata(output.messages)
+        injectMessageIds(state, config, messages, compressionPriorities)
+        applyPendingManualTrigger(state, messages, logger)
+        stripStaleMetadata(messages)
 
         if (state.sessionId) {
             await logger.saveContext(state.sessionId, output.messages)
@@ -165,7 +174,7 @@ export function createCommandExecuteHandler(
             const messagesResponse = await client.session.messages({
                 path: { id: input.sessionID },
             })
-            const messages = (messagesResponse.data || messagesResponse) as WithParts[]
+            const messages = filterProcessableMessages(messagesResponse.data || messagesResponse)
 
             await ensureSessionInitialized(
                 client,
