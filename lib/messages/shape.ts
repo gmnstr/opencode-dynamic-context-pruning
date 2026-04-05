@@ -24,10 +24,27 @@ export function isMessageWithInfo(message: unknown): message is WithParts {
     )
 }
 
-export function filterProcessableMessages(messages: unknown): WithParts[] {
+export function filterMessages(messages: unknown): WithParts[] {
     if (!Array.isArray(messages)) {
         return []
     }
 
     return messages.filter(isMessageWithInfo)
+}
+
+export function filterMessagesInPlace(messages: unknown): WithParts[] {
+    if (!Array.isArray(messages)) {
+        return []
+    }
+
+    let writeIndex = 0
+
+    for (const message of messages) {
+        if (isMessageWithInfo(message)) {
+            messages[writeIndex++] = message
+        }
+    }
+
+    messages.length = writeIndex
+    return messages as WithParts[]
 }

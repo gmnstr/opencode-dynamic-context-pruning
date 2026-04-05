@@ -113,7 +113,7 @@ test("chat message transform strips hallucinated tags even when compress is deni
     assert.equal((output.messages[0]?.parts[0] as any).text, "alpha  omega")
 })
 
-test("chat message transform ignores messages without info instead of crashing", async () => {
+test("chat message transform drops messages without info instead of crashing", async () => {
     const state = createSessionState()
     const logger = new Logger(false)
     const config = buildConfig("deny")
@@ -148,7 +148,7 @@ test("chat message transform ignores messages without info instead of crashing",
     await handler({}, output as any)
 
     assert.equal(state.sessionId, null)
-    assert.equal(output.messages.length, 1)
+    assert.equal(output.messages.length, 0)
 })
 
 test("command execute exits after effective permission resolves to deny", async () => {

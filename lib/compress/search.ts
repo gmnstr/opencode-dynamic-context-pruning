@@ -1,7 +1,7 @@
 import type { SessionState, WithParts } from "../state"
 import { formatBlockRef, parseBoundaryId } from "../message-ids"
 import { isIgnoredUserMessage } from "../messages/query"
-import { filterProcessableMessages } from "../messages/shape"
+import { filterMessages } from "../messages/shape"
 import { countAllMessageTokens } from "../token-utils"
 import type { BoundaryReference, SearchContext, SelectionResolution } from "./types"
 
@@ -10,7 +10,7 @@ export async function fetchSessionMessages(client: any, sessionId: string): Prom
         path: { id: sessionId },
     })
 
-    return filterProcessableMessages(response?.data || response)
+    return filterMessages(response?.data || response)
 }
 
 export function buildSearchContext(state: SessionState, rawMessages: WithParts[]): SearchContext {
