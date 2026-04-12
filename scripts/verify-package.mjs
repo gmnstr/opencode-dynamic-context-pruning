@@ -13,19 +13,12 @@ const builtinNames = new Set([
     ...builtinModules.map((name) => name.replace(/^node:/, "")),
 ])
 
-const requiredRepoFiles = [
-    "dist/index.js",
-    "dist/index.d.ts",
-    "dist/lib/config.js",
-    "README.md",
-    "LICENSE",
-]
+const requiredRepoFiles = ["dist/index.js", "dist/index.d.ts", "README.md", "LICENSE"]
 
 const requiredTarballFiles = [
     "package.json",
     "dist/index.js",
     "dist/index.d.ts",
-    "dist/lib/config.js",
     "README.md",
     "LICENSE",
 ]
