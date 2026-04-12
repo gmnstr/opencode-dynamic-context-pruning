@@ -16,7 +16,6 @@ const generateStableId = (prefix: string, seed: string): string => {
 export const createSyntheticUserMessage = (
     baseMessage: WithParts,
     content: string,
-    variant?: string,
     stableSeed?: string,
 ): WithParts => {
     const userInfo = baseMessage.info as UserMessage
@@ -33,7 +32,6 @@ export const createSyntheticUserMessage = (
             agent: userInfo.agent,
             model: userInfo.model,
             time: { created: now },
-            ...(variant !== undefined && { variant }),
         },
         parts: [
             {

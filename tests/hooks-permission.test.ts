@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import type { PluginConfig } from "../lib/config"
 import {
-    createChatMessageHandler,
     createChatMessageTransformHandler,
     createCommandExecuteHandler,
     createEventHandler,
@@ -174,18 +173,6 @@ test("command execute exits after effective permission resolves to deny", async 
 
     assert.equal(sessionMessagesCalls, 1)
     assert.deepEqual(output.parts, [])
-})
-
-test("chat message hook caches variant even when effective permission is denied", async () => {
-    const state = createSessionState()
-    const handler = createChatMessageHandler(state, new Logger(false), buildConfig("allow"), {
-        global: { "*": "deny" },
-        agents: {},
-    })
-
-    await handler({ sessionID: "session-1", variant: "danger", agent: "assistant" }, {})
-
-    assert.equal(state.variant, "danger")
 })
 
 test("text complete strips hallucinated metadata tags", async () => {

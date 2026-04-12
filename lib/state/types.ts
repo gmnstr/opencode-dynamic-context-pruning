@@ -106,7 +106,6 @@ export interface SessionState {
     messageIds: MessageIdState
     lastCompaction: number
     currentTurn: number
-    variant: string | undefined
     modelContextLimit: number | undefined
     systemPromptTokens: number | undefined
 }

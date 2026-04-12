@@ -365,24 +365,3 @@ export function createEventHandler(state: SessionState, logger: Logger) {
         }
     }
 }
-
-export function createChatMessageHandler(
-    state: SessionState,
-    logger: Logger,
-    _config: PluginConfig,
-    _hostPermissions: HostPermissionSnapshot,
-) {
-    return async (
-        input: {
-            sessionID: string
-            agent?: string
-            model?: { providerID: string; modelID: string }
-            messageID?: string
-            variant?: string
-        },
-        _output: any,
-    ) => {
-        state.variant = input.variant
-        logger.debug("Cached variant from chat.message hook", { variant: input.variant })
-    }
-}

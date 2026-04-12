@@ -96,7 +96,6 @@ export function createSessionState(): SessionState {
         },
         lastCompaction: 0,
         currentTurn: 0,
-        variant: undefined,
         modelContextLimit: undefined,
         systemPromptTokens: undefined,
     }
@@ -131,7 +130,6 @@ export function resetSessionState(state: SessionState): void {
     }
     state.lastCompaction = 0
     state.currentTurn = 0
-    state.variant = undefined
     state.modelContextLimit = undefined
     state.systemPromptTokens = undefined
 }

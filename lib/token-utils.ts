@@ -54,14 +54,14 @@ export function getCurrentParams(
             providerId: undefined,
             modelId: undefined,
             agent: undefined,
-            variant: state.variant,
+            variant: undefined,
         }
     }
     const userInfo = userMsg.info as UserMessage
     const agent: string = userInfo.agent
     const providerId: string | undefined = userInfo.model.providerID
     const modelId: string | undefined = userInfo.model.modelID
-    const variant: string | undefined = state.variant ?? userInfo.variant
+    const variant: string | undefined = userInfo.model.variant
 
     return { providerId, modelId, agent, variant }
 }
