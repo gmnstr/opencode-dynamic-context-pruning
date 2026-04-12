@@ -314,9 +314,6 @@ const SidebarContext = (props: {
             width="100%"
             flexDirection="column"
             backgroundColor={props.palette.surface}
-            border
-            borderStyle="single"
-            borderColor={props.palette.accent}
             paddingTop={1}
             paddingBottom={1}
             paddingLeft={1}

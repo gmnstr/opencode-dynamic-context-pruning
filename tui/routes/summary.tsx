@@ -143,16 +143,7 @@ function SummaryScreen(props: { api: TuiPluginApi; params: SummaryRouteParams })
                 </text>
             </box>
 
-            <box
-                flexGrow={1}
-                width="100%"
-                marginTop={1}
-                border
-                borderStyle="single"
-                borderColor={palette().border}
-                padding={1}
-                flexDirection="column"
-            >
+            <box flexGrow={1} width="100%" marginTop={1} padding={1} flexDirection="column">
                 <text fg={palette().text}>{parsed().body || "(no summary available)"}</text>
 
                 <For each={parsed().sections}>
