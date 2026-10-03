@@ -96,6 +96,13 @@ export interface SessionState {
     sessionId: string | null
     /** Session state has been fully installed for `sessionId`. */
     initialized?: boolean
+    /**
+     * This state belonged to a session that was deleted, and must never be
+     * persisted again (see SessionRegistry.evict). A deleted session's in-flight
+     * operation can still hold this object, so the marker travels with the state
+     * rather than only with the session id.
+     */
+    evicted?: boolean
     isSubAgent: boolean
     manualMode: false | "active" | "compress-pending"
     compressPermission: "ask" | "allow" | "deny" | undefined

@@ -31,7 +31,12 @@ import { createSessionState } from "./state"
 export interface SessionRegistry {
     /** Existing entry, or null when the session was never resolved or was evicted. */
     get(sessionId: string): SessionState | null
-    /** Existing entry, or a fresh per-session state object. */
+    /**
+     * Existing entry, or a fresh per-session state object. A tombstoned (deleted)
+     * id never gets a registered entry: the object handed back is unregistered and
+     * marked evicted, so it can neither be resolved into a competing queue slot
+     * nor be saved.
+     */
     resolve(sessionId: string): SessionState
     /**
      * Run an operation held under this session's serialization chain. A call made
@@ -41,11 +46,27 @@ export interface SessionRegistry {
     run<T>(sessionId: string, operation: () => Promise<T> | T): Promise<T>
     /** Append work to this session's serialization chain without joining it. */
     enqueue(sessionId: string, operation: () => Promise<void>): void
-    /** Drop the session's state (session.deleted) so memory stays bounded. */
+    /**
+     * Drop the session's state (session.deleted) so memory stays bounded, and
+     * tombstone the id: it can no longer be resolved into a new entry and its state
+     * can no longer be persisted. Returns whether a live entry was removed.
+     */
     evict(sessionId: string): boolean
     /** Number of live sessions (test/diagnostic helper). */
     size(): number
 }
+
+/**
+ * How many deleted session ids one registry remembers.
+ *
+ * The registry lives for the whole plugin process, so the tombstone store is
+ * capped FIFO instead of growing with every deletion: ~1k short session ids is
+ * tens of KB of memory. After a tombstone ages out (see `rememberTombstone`) a
+ * resurrecting save for that id becomes possible again - graceful degradation,
+ * and only for a state object that outlived a further `MAX_SESSION_TOMBSTONES`
+ * deletions.
+ */
+export const MAX_SESSION_TOMBSTONES = 1024
 
 /**
  * The queue slot the current async context is executing inside, if any. Set only
@@ -71,6 +92,13 @@ interface RegistryEntry {
 
 class SessionRegistryImpl implements SessionRegistry {
     private readonly entries = new Map<string, RegistryEntry>()
+    /**
+     * Ids of deleted sessions, oldest first. A tombstoned id must never be
+     * resolved into a new entry - that is what let an in-flight operation
+     * resurrect a deleted session's file - and the store is FIFO-bounded so
+     * deletions cannot grow it without limit.
+     */
+    private readonly tombstones = new Set<string>()
 
     get(sessionId: string): SessionState | null {
         return this.entries.get(sessionId)?.state ?? null
@@ -80,6 +108,17 @@ class SessionRegistryImpl implements SessionRegistry {
         const existing = this.entries.get(sessionId)
         if (existing) {
             return existing.state
+        }
+
+        if (this.tombstones.has(sessionId)) {
+            // Deleted session: hand back a usable object for direct callers, but do
+            // not register it. Registering would recreate the entry the tombstone
+            // exists to prevent, and with it a second queue slot for a session id
+            // that is already gone. The object is marked evicted, so no save path
+            // can write it back to disk either.
+            const orphan = createSessionState()
+            orphan.evicted = true
+            return orphan
         }
 
         const entry: RegistryEntry = {
@@ -132,11 +171,45 @@ class SessionRegistryImpl implements SessionRegistry {
     }
 
     evict(sessionId: string): boolean {
-        return this.entries.delete(sessionId)
+        const entry = this.entries.get(sessionId)
+        if (!entry) {
+            // Nothing was deleted, so nothing can be resurrected: an id that was
+            // never resolved is not tombstoned, and a later request for it still
+            // gets a live entry.
+            return false
+        }
+
+        this.entries.delete(sessionId)
+        // Remember the id so no new entry can be minted for it, and mark the state
+        // object itself, because an operation that started before the deletion can
+        // still be holding it and asking to save it.
+        entry.state.evicted = true
+        this.rememberTombstone(sessionId)
+        return true
     }
 
     size(): number {
         return this.entries.size
+    }
+
+    /**
+     * Record a deleted session id, oldest-out-first, so the store stays bounded.
+     *
+     * Refreshing an existing id before inserting keeps the eviction order honest
+     * (a re-deleted session is the most recent deletion).
+     */
+    private rememberTombstone(sessionId: string): void {
+        this.tombstones.delete(sessionId)
+        this.tombstones.add(sessionId)
+
+        if (this.tombstones.size <= MAX_SESSION_TOMBSTONES) {
+            return
+        }
+
+        const oldest = this.tombstones.values().next().value
+        if (oldest !== undefined) {
+            this.tombstones.delete(oldest)
+        }
     }
 
     /**
@@ -199,6 +272,22 @@ class SessionRegistryImpl implements SessionRegistry {
     }
 
     private entryFor(sessionId: string): RegistryEntry {
+        const existing = this.entries.get(sessionId)
+        if (existing) {
+            return existing
+        }
+
+        // Deleted session: there is no entry to serialize against, and minting one
+        // would recreate exactly what the tombstone prevents. The operation still
+        // runs, against a throwaway slot that is never registered, so a caller
+        // reaching here through run()/enqueue() keeps the normal contract (its own
+        // resolve then finds no entry and fails open) instead of crashing on a
+        // missing entry.
+        if (this.tombstones.has(sessionId)) {
+            const state = this.resolve(sessionId)
+            return { state, tail: Promise.resolve(), ownerToken: null, inline: new Set() }
+        }
+
         this.resolve(sessionId)
         return this.entries.get(sessionId)!
     }
@@ -225,7 +314,9 @@ export function isSessionRegistry(source: SessionSource): source is SessionRegis
 /**
  * Resolve the state for a routing source.
  * - registry: requires `sessionId`; returns null when identity is unavailable
- *   (fail open - callers then mutate nothing).
+ *   (fail open - callers then mutate nothing), and also for a tombstoned
+ *   (deleted) session, so a new operation on a deleted session reaches no state
+ *   at all rather than one that can never be persisted.
  * - explicit state: returned as-is (no session identity required).
  */
 export function resolveSessionState(
@@ -236,7 +327,8 @@ export function resolveSessionState(
         if (!sessionId) {
             return null
         }
-        return source.resolve(sessionId)
+        const state = source.resolve(sessionId)
+        return state.evicted ? null : state
     }
     return source
 }

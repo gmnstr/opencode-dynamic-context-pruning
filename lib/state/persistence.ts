@@ -84,6 +84,16 @@ export async function saveSessionState(
     sessionName?: string,
     registry?: SessionRegistry,
 ): Promise<void> {
+    // A state whose session was deleted must never be written back: the session
+    // is gone on the host, and its file (if any) was removed with it. This guard
+    // sits above the routing below on purpose, because the unrouted saves
+    // (checkSession/ensureSessionInitialized in ./state, injectCompressNudges)
+    // have no registry to ask, and an in-flight operation that captured this
+    // state before the eviction is exactly the caller that must be dropped.
+    if (sessionState.evicted) {
+        return
+    }
+
     // Serialize concurrent saves for one session: without this, two saves
     // interleaving across their awaits can write a stale snapshot last. A
     // registry-routed save joins that session's queue; a save issued from code
