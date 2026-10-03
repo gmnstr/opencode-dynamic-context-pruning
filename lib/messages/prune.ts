@@ -210,9 +210,23 @@ const filterCompressedRanges = (
                         summaryLength: summaryContent.length,
                     })
                 } else {
-                    logger.warn("No user message found for compress summary", {
-                        anchorMessageId: msgId,
-                    })
+                    // Fall back to the anchor message itself when no user message
+                    // precedes the compression point (e.g. subagent sessions,
+                    // post-compaction). Otherwise original messages are dropped
+                    // without a summary — silent data loss.
+                    // See PR #523 Bug #6.
+                    logger.warn(
+                        "No user message found for compress summary, falling back to anchor message",
+                        {
+                            anchorMessageId: msgId,
+                        },
+                    )
+                    const summaryContent =
+                        config.compress.mode === "message"
+                            ? replaceBlockIdsWithBlocked(rawSummaryContent)
+                            : rawSummaryContent
+                    const summarySeed = `${summary.blockId}:${summary.anchorMessageId}`
+                    result.push(createSyntheticUserMessage(msg, summaryContent, summarySeed))
                 }
             }
         }
