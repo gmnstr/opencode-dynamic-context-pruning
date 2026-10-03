@@ -28,6 +28,7 @@ interface PersistedPruneMessagesState {
     byMessageId: Record<string, PrunedMessageEntry>
     blocksById: Record<string, CompressionBlock>
     activeBlockIds: number[]
+    resolvableBlockIds?: number[]
     activeByAnchorMessageId: Record<string, number>
     nextBlockId: number
     nextRunId: number
@@ -45,6 +46,7 @@ export function serializePruneMessagesState(
             ]),
         ),
         activeBlockIds: Array.from(messagesState.activeBlockIds),
+        resolvableBlockIds: Array.from(messagesState.resolvableBlockIds),
         activeByAnchorMessageId: Object.fromEntries(messagesState.activeByAnchorMessageId),
         nextBlockId: messagesState.nextBlockId,
         nextRunId: messagesState.nextRunId,
@@ -109,6 +111,7 @@ export function createPruneMessagesState(): PruneMessagesState {
         byMessageId: new Map<string, PrunedMessageEntry>(),
         blocksById: new Map<number, CompressionBlock>(),
         activeBlockIds: new Set<number>(),
+        resolvableBlockIds: new Set<number>(),
         activeByAnchorMessageId: new Map<string, number>(),
         nextBlockId: 1,
         nextRunId: 1,
@@ -253,6 +256,15 @@ export function loadPruneMessagesState(
                 continue
             }
             state.activeBlockIds.add(blockId)
+        }
+    }
+
+    if (Array.isArray(persisted.resolvableBlockIds)) {
+        for (const blockId of persisted.resolvableBlockIds) {
+            if (!Number.isInteger(blockId) || blockId < 1) {
+                continue
+            }
+            state.resolvableBlockIds.add(blockId)
         }
     }
 

@@ -1,7 +1,7 @@
 import type { SessionState } from "../../state"
 
 export function buildCompressedBlockGuidance(state: SessionState): string {
-    const refs = Array.from(state.prune.messages.activeBlockIds)
+    const refs = Array.from(state.prune.messages.resolvableBlockIds)
         .filter((id) => Number.isInteger(id) && id > 0)
         .sort((a, b) => a - b)
         .map((id) => `b${id}`)

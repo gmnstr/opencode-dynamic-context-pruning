@@ -479,6 +479,7 @@ test("range-mode nudges append to existing text parts before tool outputs", () =
 
     assignMessageRefs(state, messages)
     state.prune.messages.activeBlockIds.add(7)
+    state.prune.messages.resolvableBlockIds.add(7)
     state.nudges.contextLimitAnchors.add("msg-assistant-1")
 
     applyAnchoredNudges(state, config, messages, {

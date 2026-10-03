@@ -63,6 +63,8 @@ export interface PruneMessagesState {
     byMessageId: Map<string, PrunedMessageEntry>
     blocksById: Map<number, CompressionBlock>
     activeBlockIds: Set<number>
+    /** Active blocks whose `bN` ref the boundary lookup will still resolve. */
+    resolvableBlockIds: Set<number>
     activeByAnchorMessageId: Map<string, number>
     nextBlockId: number
     nextRunId: number

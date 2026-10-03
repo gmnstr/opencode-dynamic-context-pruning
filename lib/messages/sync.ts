@@ -1,5 +1,6 @@
 import type { SessionState, WithParts } from "../state"
 import type { Logger } from "../logger"
+import { isIgnoredUserMessage } from "./query"
 
 function sortBlocksByCreation(
     a: { createdAt: number; blockId: number },
@@ -23,6 +24,7 @@ export const syncCompressionBlocks = (
     }
 
     const messageIds = new Set(messages.map((msg) => msg.info.id))
+    const messagesById = new Map(messages.map((msg) => [msg.info.id, msg] as const))
     const previousActiveBlockIds = new Set<number>(
         Array.from(messagesState.blocksById.values())
             .filter((block) => block.active)
@@ -30,6 +32,7 @@ export const syncCompressionBlocks = (
     )
 
     messagesState.activeBlockIds.clear()
+    messagesState.resolvableBlockIds.clear()
     messagesState.activeByAnchorMessageId.clear()
 
     const now = Date.now()
@@ -79,6 +82,7 @@ export const syncCompressionBlocks = (
             }
 
             messagesState.activeBlockIds.delete(consumedBlockId)
+            messagesState.resolvableBlockIds.delete(consumedBlockId)
         }
 
         block.active = true
@@ -87,6 +91,14 @@ export const syncCompressionBlocks = (
         messagesState.activeBlockIds.add(block.blockId)
         if (messageIds.has(block.anchorMessageId)) {
             messagesState.activeByAnchorMessageId.set(block.anchorMessageId, block.blockId)
+
+            // Stay in step with buildBoundaryLookup (lib/compress/search.ts): a `bN` ref only
+            // resolves while the anchor message is present and is not an ignored user message.
+            // The raw anchor is only visible here, before prune rewrites the payload.
+            const anchorMessage = messagesById.get(block.anchorMessageId)
+            if (anchorMessage && !isIgnoredUserMessage(anchorMessage)) {
+                messagesState.resolvableBlockIds.add(block.blockId)
+            }
         }
     }
 

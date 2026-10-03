@@ -18,6 +18,7 @@ export interface PersistedPruneMessagesState {
     byMessageId: Record<string, PrunedMessageEntry>
     blocksById: Record<string, CompressionBlock>
     activeBlockIds: number[]
+    resolvableBlockIds?: number[]
     activeByAnchorMessageId: Record<string, number>
     nextBlockId: number
     nextRunId: number
