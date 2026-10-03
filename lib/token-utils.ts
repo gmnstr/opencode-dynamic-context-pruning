@@ -31,7 +31,12 @@ export function getCurrentTokenUsage(state: SessionState, messages: WithParts[])
         const reasoning = assistantInfo.tokens?.reasoning || 0
         const cacheRead = assistantInfo.tokens?.cache?.read || 0
         const cacheWrite = assistantInfo.tokens?.cache?.write || 0
-        return input + output + reasoning + cacheRead + cacheWrite
+        // AI SDK v6+ includes cache in `input` for all providers.
+        // Heuristic: if cacheRead <= input, it's likely already included.
+        if (cacheRead > input && input > 0) {
+            return input + output + reasoning + cacheRead + cacheWrite
+        }
+        return input + output + reasoning + cacheWrite
     }
 
     return 0
