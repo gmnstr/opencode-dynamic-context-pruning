@@ -54,6 +54,45 @@ export function resolveCompressionDuration(
     return typeof pendingToRunningMs === "number" ? pendingToRunningMs : runtimeMs
 }
 
+/**
+ * Drop every recorded compression start.
+ *
+ * A start describes a call that was in flight for the conversation this state was
+ * bound to *before* the reset, so consuming it afterwards derives a duration from
+ * no evidence at all: either from a start that no longer corresponds to the call
+ * (session initialization) or from a block that no longer exists (compaction).
+ * The completion event still produces a duration through its own fallback.
+ *
+ * Cleared in place, not reassigned: an in-flight operation can hold a direct
+ * reference to this map (`createEventHandler` in lib/hooks.ts records starts), and
+ * a reassignment would leave that holder writing into a map the state no longer
+ * owns. Identity preservation here is deliberate.
+ */
+export function resetCompressionStarts(state: SessionState): void {
+    state.compressionTiming.startsByCallId.clear()
+}
+
+/**
+ * Drop every recorded start and every pending duration.
+ *
+ * Compaction is the reset where a pending duration has to go as well: it replaces
+ * `prune.messages` wholesale (lib/state/utils.ts), so a duration still waiting for
+ * its block can never be applied again - retained garbage that would otherwise be
+ * attached to an unrelated block happening to reuse the same message/call ids
+ * (`applyPendingCompressionDurations` below only deletes an entry it applies).
+ *
+ * `resetSessionState` deliberately does *not* call this: it drops the starts only,
+ * because a pending duration is how a completion that arrived before the session
+ * was loaded reaches its block. `ensureSessionInitialized` resets the state, then
+ * loads the session's blocks, and only then applies what is still pending
+ * (lib/state/state.ts), and a pending duration dropped at that reset would be lost
+ * for good.
+ */
+export function resetCompressionTiming(state: SessionState): void {
+    resetCompressionStarts(state)
+    state.compressionTiming.pendingByCallId.clear()
+}
+
 export function applyPendingCompressionDurations(state: SessionState): number {
     if (state.compressionTiming.pendingByCallId.size === 0) {
         return 0

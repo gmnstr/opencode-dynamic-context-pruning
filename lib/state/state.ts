@@ -1,6 +1,6 @@
 import type { SessionState, ToolParameterEntry, WithParts } from "./types"
 import type { Logger } from "../logger"
-import { applyPendingCompressionDurations } from "../compress/timing"
+import { applyPendingCompressionDurations, resetCompressionStarts } from "../compress/timing"
 import { loadSessionState, saveSessionState } from "./persistence"
 import {
     isSubAgentSession,
@@ -140,6 +140,17 @@ export function resetSessionState(state: SessionState): void {
         pruneTokenCounter: 0,
         totalPruneTokens: 0,
     }
+    // Starts are dropped, pending durations are not. A start belongs to the
+    // conversation this state was bound to before the reset. A pending duration is
+    // still on its way to a block: `ensureSessionInitialized` calls this reset
+    // *before* it loads the session's blocks and applies what is pending, which is
+    // how a completion that arrived before the session was loaded reaches its
+    // block - dropping it here would lose that duration for good.
+    // Cleared in place rather than reassigned, unlike `messageIds`/`prune` above:
+    // an in-flight operation can hold the timing maps directly (createEventHandler
+    // in lib/hooks.ts, finalizeSession in lib/compress/pipeline.ts), and it has to
+    // observe the reset instead of writing into a map this state no longer owns.
+    resetCompressionStarts(state)
     state.toolParameters.clear()
     state.subAgentResultCache.clear()
     state.toolIdList = []

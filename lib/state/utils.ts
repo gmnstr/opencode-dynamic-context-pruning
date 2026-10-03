@@ -8,6 +8,7 @@ import type {
 import { isIgnoredUserMessage, messageHasCompress } from "../messages/query"
 import { isMessageWithInfo } from "../messages/shape"
 import { countTokens } from "../token-utils"
+import { resetCompressionTiming } from "../compress/timing"
 
 export const isMessageCompacted = (state: SessionState, msg: WithParts): boolean => {
     if (!isMessageWithInfo(msg)) {
@@ -344,6 +345,11 @@ export function resetOnCompaction(state: SessionState): void {
     state.toolParameters.clear()
     state.prune.tools = new Map<string, number>()
     state.prune.messages = createPruneMessagesState()
+    // Compaction swaps in a fresh `prune.messages`, so a duration still pending
+    // for a block of the replaced state can never be applied again - it is
+    // retained garbage that would otherwise be attached to an unrelated block
+    // that happens to reuse the same message/call ids.
+    resetCompressionTiming(state)
     state.messageIds = {
         byRawId: new Map<string, string>(),
         byRef: new Map<string, string>(),
