@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import test from "node:test"
 import { Logger } from "../lib/logger"
-import { assignMessageRefs } from "../lib/message-ids"
+import { assignMessageRefs, MESSAGE_REF_MAX_INDEX } from "../lib/message-ids"
 import {
     createSessionState,
     ensureSessionInitialized,
@@ -207,6 +207,48 @@ test("(d) malformed persisted messageIds degrades without throwing", async () =>
     assert.equal(state.messageIds.nextRef, 1)
 })
 
+test("(m) a persisted nextRef above the alias ceiling degrades instead of bricking the session", async () => {
+    // A document whose nextRef drifted past the last usable alias: honouring it makes
+    // `allocateNextMessageRef` refuse every candidate, and the floor in
+    // `reconcileMessageRefs` never lowers it, so the session would stay without new
+    // message ids across restarts and compactions alike. It has to degrade instead.
+    const sessionId = `${SESSION_ID}-over-ceiling`
+    writeSessionFile(
+        sessionId,
+        sessionDocument({
+            messageIds: { byRawId: {}, byRef: {}, nextRef: MESSAGE_REF_MAX_INDEX + 1 },
+        }),
+    )
+
+    const state = await loadIntoFreshState(sessionId, [userMessage("msg-1", 1)])
+
+    assert.equal(state.messageIds.nextRef, 1)
+
+    // ...and the loaded session can still hand out aliases.
+    const assigned = assignMessageRefs(state, [userMessage("msg-1", 1)])
+    assert.equal(assigned, 1)
+    assert.equal(state.messageIds.byRawId.get("msg-1"), "m0001")
+})
+
+test("(n) a persisted nextRef exactly at the alias ceiling is honoured", async () => {
+    const sessionId = `${SESSION_ID}-at-ceiling`
+    writeSessionFile(
+        sessionId,
+        sessionDocument({
+            messageIds: { byRawId: {}, byRef: {}, nextRef: MESSAGE_REF_MAX_INDEX },
+        }),
+    )
+
+    const state = await loadIntoFreshState(sessionId, [userMessage("msg-1", 1)])
+
+    // The boundary value is legitimate - it is the last alias the session may still
+    // issue - so it must survive the load and still allocate that last alias.
+    assert.equal(state.messageIds.nextRef, MESSAGE_REF_MAX_INDEX)
+
+    const assigned = assignMessageRefs(state, [assistantMessage("msg-2", 2)])
+    assert.equal(assigned, 1)
+    assert.equal(state.messageIds.byRawId.get("msg-2"), `m${MESSAGE_REF_MAX_INDEX}`)
+})
 test("(e) reconciliation drops dead refs, keeps live ones, and never lowers nextRef", () => {
     const state = createSessionState()
     state.messageIds.byRawId.set("msg-live", "m0005")

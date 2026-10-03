@@ -212,10 +212,18 @@ function renderBlockRefs(blockIds: number[]): string {
  * The refs the model can actually use right now, so a stale-ref rejection points at a
  * live id instead of leaving the model to retry the dead one.
  *
- * The message rule mirrors `buildBoundaryLookup` (lib/compress/search.ts): a ref
- * resolves while its raw message is in the live payload and is not an ignored user
- * message. Block refs come from `resolvableBlockIds`, which
- * `syncCompressionBlocks` (lib/messages/sync.ts) keeps in step with that resolver.
+ * Both halves are computed here, against the same `searchContext` payload, with the
+ * predicate `buildBoundaryLookup` (lib/compress/search.ts) applies: a ref is valid while
+ * its raw message - or, for a block, its anchor message - is in the live payload, is
+ * indexed there, and is not an ignored user message. Block refs are deliberately not read
+ * from `resolvableBlockIds`: that cache is written only by `syncCompressionBlocks`
+ * (lib/messages/sync.ts), which does not run on every path that renders this text (the
+ * compress tool pipeline and `/dcp compress` reach it without one).
+ *
+ * Parity with the resolver therefore holds *within one transform payload*: both sides
+ * describe the same raw message array. `buildBoundaryLookup` itself resolves against a
+ * fresh `client.session.messages` fetch at tool time, so agreement is a property of this
+ * payload, not a global invariant.
  *
  * Bounded on purpose. This text is embedded in a tool response the model reads, and a
  * long-lived session can carry thousands of refs: message refs collapse into
@@ -238,10 +246,30 @@ function describeValidRefs(state: SessionState, searchContext: SearchContext): s
         indices.push(index)
     }
 
-    const sections = [
-        renderMessageRefRuns(indices),
-        renderBlockRefs(Array.from(state.prune.messages.resolvableBlockIds)),
-    ].filter((section) => section.length > 0)
+    // Derived here, not read from `resolvableBlockIds`: that cache is only refreshed by
+    // `syncCompressionBlocks`, and this text is also rendered on paths that never call it.
+    // Same predicate as buildBoundaryLookup's summary loop (lib/compress/search.ts).
+    const validBlockIds: number[] = []
+    for (const [blockId, block] of state.prune.messages.blocksById) {
+        if (!block.active) {
+            continue
+        }
+        const anchorMessage = searchContext.rawMessagesById.get(block.anchorMessageId)
+        if (!anchorMessage) {
+            continue
+        }
+        if (isIgnoredUserMessage(anchorMessage)) {
+            continue
+        }
+        if (!searchContext.rawIndexById.has(block.anchorMessageId)) {
+            continue
+        }
+        validBlockIds.push(blockId)
+    }
+
+    const sections = [renderMessageRefRuns(indices), renderBlockRefs(validBlockIds)].filter(
+        (section) => section.length > 0,
+    )
 
     if (sections.length === 0) {
         return "No refs are valid right now."

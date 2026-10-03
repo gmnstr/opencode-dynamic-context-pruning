@@ -260,10 +260,45 @@ test("evict reports whether a live entry was removed", () => {
 
     assert.equal(registry.evict(sessionId), true)
     assert.equal(registry.evict(sessionId), false)
+    // No live entry, so nothing was removed - but the id is tombstoned all the same:
+    // session.deleted means the session is gone whether or not this process ever
+    // resolved it, and no state file is deleted for us to rely on instead.
     assert.equal(registry.evict("ses-tombstone-never-resolved"), false)
 
-    // An unknown id deleted nothing, so it is not poisoned: a later request for
-    // it still gets a live entry.
-    assert.notEqual(resolveSessionState(registry, "ses-tombstone-never-resolved"), null)
-    assert.equal(registry.size(), 1)
+    // A later request for the deleted id therefore reaches no state at all, and no
+    // entry is minted for it.
+    assert.equal(resolveSessionState(registry, "ses-tombstone-never-resolved"), null)
+    assert.equal(registry.get("ses-tombstone-never-resolved"), null)
+    assert.equal(registry.size(), 0)
+})
+
+test("a deletion with a live file but no live entry is still suppressed", async () => {
+    const sessionId = "ses-tombstone-file-survives"
+
+    // Writer registry A persists the session and goes away (a plugin restart).
+    const writer = createSessionRegistry()
+    const state = sessionStateFor(writer, sessionId)
+    state.prune.tools.set("read", 7)
+    await saveSessionState(state, QUIET, undefined, writer)
+
+    const filePath = getSessionFilePath(sessionId)
+    assert.equal(existsSync(filePath), true)
+
+    // Registry B never resolved this id, so there is no live entry to remove...
+    const reader = createSessionRegistry()
+    assert.equal(reader.evict(sessionId), false)
+
+    // ...and the file is deliberately left in place, because production never deletes
+    // it (lib/hooks.ts only calls evict). The deletion must still stick.
+    assert.equal(existsSync(filePath), true)
+    assert.equal(resolveSessionState(reader, sessionId), null)
+
+    const orphan = reader.resolve(sessionId)
+    assert.equal(orphan.evicted, true)
+    orphan.prune.tools.set("write", 9)
+    await saveSessionState(orphan, QUIET, undefined, reader)
+
+    const written = JSON.parse(readFileSync(filePath, "utf-8"))
+    assert.equal(written.prune.tools.read, 7)
+    assert.equal(written.prune.tools.write, undefined)
 })

@@ -182,7 +182,7 @@ export function createChatMessageTransformHandler(
 
         stripHallucinations(workingMessages)
         cacheSystemPromptTokens(state, workingMessages)
-        assignMessageRefs(state, workingMessages)
+        assignMessageRefs(state, workingMessages, logger)
         syncCompressionBlocks(state, logger, workingMessages)
         syncToolCache(state, config, logger, workingMessages)
         buildToolIdList(state, workingMessages)

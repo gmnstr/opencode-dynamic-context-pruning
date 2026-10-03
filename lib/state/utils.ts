@@ -11,6 +11,7 @@ import { isIgnoredUserMessage, messageHasCompress } from "../messages/query"
 import { isMessageWithInfo } from "../messages/shape"
 import { countTokens } from "../token-utils"
 import { resetCompressionTiming } from "../compress/timing"
+import { MESSAGE_REF_MAX_INDEX } from "../message-ids"
 
 export const isMessageCompacted = (state: SessionState, msg: WithParts): boolean => {
     if (!isMessageWithInfo(msg)) {
@@ -267,6 +268,15 @@ export function loadPruneMessagesState(
             if (!Number.isInteger(blockId) || blockId < 1) {
                 continue
             }
+            // Subset check on purpose: this set is trusted verbatim otherwise, so an
+            // entry whose block did not come back would advertise a `bN` the resolver
+            // rejects. `syncCompressionBlocks` derives the same set from the blocks it
+            // can see; between transforms it must not name a block that is not here.
+            // `activeBlockIds` is deliberately left as the existing derivation in the
+            // block loop below - only the resolvable set was unguarded.
+            if (!state.blocksById.has(blockId)) {
+                continue
+            }
             state.resolvableBlockIds.add(blockId)
         }
     }
@@ -324,6 +334,14 @@ export function serializeMessageIdsState(messageIds: MessageIdState): PersistedM
  * document degrades to the empty default rather than throwing: defaulting costs the
  * session its refs, while a throw here would take the whole chat transform with it.
  *
+ * `nextRef` is bounded on both ends, the policy the `nextBlockId`/`nextRunId` clamps
+ * in `loadPruneMessagesState` already use. A value above `MESSAGE_REF_MAX_INDEX` can
+ * never produce an alias - `allocateNextMessageRef` refuses every candidate - and the
+ * floor in `reconcileMessageRefs` (lib/message-ids.ts) never lowers it, so honouring
+ * it would permanently brick the alias space of that session. It therefore degrades
+ * to the empty default of 1, which `reconcileMessageRefs` then raises to one past the
+ * highest ref the document still holds, so nothing already shown is reissued.
+ *
  * Junk entries are dropped per entry, the policy `loadPruneMessagesState` already
  * uses. A ref key that is not `mNNNN` is unreachable anyway - `parseBoundaryId`
  * rejects it - and `reconcileMessageRefs` (lib/message-ids.ts) drops it on the next
@@ -341,7 +359,8 @@ export function loadMessageIdsState(persisted?: PersistedMessageIds): MessageIdS
     if (
         typeof persisted.nextRef === "number" &&
         Number.isInteger(persisted.nextRef) &&
-        persisted.nextRef >= 1
+        persisted.nextRef >= 1 &&
+        persisted.nextRef <= MESSAGE_REF_MAX_INDEX
     ) {
         state.nextRef = persisted.nextRef
     }

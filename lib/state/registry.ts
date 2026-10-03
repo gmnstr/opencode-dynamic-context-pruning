@@ -49,7 +49,10 @@ export interface SessionRegistry {
     /**
      * Drop the session's state (session.deleted) so memory stays bounded, and
      * tombstone the id: it can no longer be resolved into a new entry and its state
-     * can no longer be persisted. Returns whether a live entry was removed.
+     * can no longer be persisted. The id is tombstoned even when this process holds
+     * no live entry for it: nothing here deletes the session's state file, so an
+     * untombstoned deletion would be loaded straight back from the surviving file by
+     * the next request. Returns whether a live entry was removed.
      */
     evict(sessionId: string): boolean
     /** Number of live sessions (test/diagnostic helper). */
@@ -172,20 +175,23 @@ class SessionRegistryImpl implements SessionRegistry {
 
     evict(sessionId: string): boolean {
         const entry = this.entries.get(sessionId)
-        if (!entry) {
-            // Nothing was deleted, so nothing can be resurrected: an id that was
-            // never resolved is not tombstoned, and a later request for it still
-            // gets a live entry.
-            return false
+
+        if (entry) {
+            this.entries.delete(sessionId)
+            // Mark the state object itself, because an operation that started before
+            // the deletion can still be holding it and asking to save it.
+            entry.state.evicted = true
         }
 
-        this.entries.delete(sessionId)
-        // Remember the id so no new entry can be minted for it, and mark the state
-        // object itself, because an operation that started before the deletion can
-        // still be holding it and asking to save it.
-        entry.state.evicted = true
+        // Tombstoned even when no live entry existed. The only production caller is
+        // the session.deleted handler, so the event means the session is gone whether
+        // or not this process ever resolved it - and because nothing in this plugin
+        // deletes the session's state file, an id that is not remembered here would be
+        // reloaded from that surviving file by the next request. The return value
+        // still reports only whether a live entry was actually removed.
         this.rememberTombstone(sessionId)
-        return true
+
+        return entry !== undefined
     }
 
     size(): number {

@@ -92,12 +92,17 @@ export async function saveSessionState(
     sessionName?: string,
     registry?: SessionRegistry,
 ): Promise<void> {
-    // A state whose session was deleted must never be written back: the session
-    // is gone on the host, and its file (if any) was removed with it. This guard
+    // A state whose session was deleted must never be written back. The guarantee is
+    // "no save is issued for a tombstoned session", which this flag plus the registry
+    // tombstone provide - NOT that the session's file is gone: nothing in this plugin
+    // deletes <sessionId>.json on session.deleted, so the durable file survives the
+    // deletion, and once the id ages out of the FIFO tombstone store
+    // (MAX_SESSION_TOMBSTONES in ./registry) that file is loadable again. The session
+    // would then come back with its full persisted state, not an empty one. This guard
     // sits above the routing below on purpose, because the unrouted saves
-    // (checkSession/ensureSessionInitialized in ./state, injectCompressNudges)
-    // have no registry to ask, and an in-flight operation that captured this
-    // state before the eviction is exactly the caller that must be dropped.
+    // (checkSession/ensureSessionInitialized in ./state, injectCompressNudges) have no
+    // registry to ask, and an in-flight operation that captured this state before the
+    // eviction is exactly the caller that must be dropped.
     if (sessionState.evicted) {
         return
     }

@@ -5,7 +5,7 @@ import "./helpers/dcp-test-env"
 import assert from "node:assert/strict"
 import test from "node:test"
 import { formatIssues, resolveMessages } from "../lib/compress/message-utils"
-import { buildSearchContext } from "../lib/compress/search"
+import { buildSearchContext, resolveBoundaryIds } from "../lib/compress/search"
 import type { PluginConfig } from "../lib/config"
 import { Logger } from "../lib/logger"
 import { assignMessageRefs, formatMessageRef } from "../lib/message-ids"
@@ -286,4 +286,38 @@ test("(j) the rejection stays bounded and says so plainly when nothing is valid"
     assert.match(empty.issue, /No refs are valid right now\.$/)
     assert.doesNotMatch(empty.issue, /Valid refs right now/)
     assert.ok(empty.issue.length < 512, `got ${empty.issue.length} characters`)
+})
+
+test("(k) block refs come from the payload, so they are right without a sync", () => {
+    const messages = [
+        userMessage("msg-user-1", 1),
+        assistantMessage("msg-assistant-1", 2),
+        compressToolMessage(COMPRESS_MESSAGE_ID, 3),
+    ]
+    const state = createSessionState()
+    assignMessageRefs(state, messages)
+    state.prune.messages.blocksById.set(1, buildBlock(1, "msg-assistant-1"))
+    state.prune.messages.blocksById.set(2, buildBlock(2, "msg-anchor-not-in-session"))
+    state.prune.messages.blocksById.set(3, buildBlock(3, "msg-user-1"))
+
+    // No syncCompressionBlocks on purpose: the compress tool pipeline and `/dcp compress`
+    // both render this text without one, so the cache is empty here.
+    assert.equal(state.prune.messages.resolvableBlockIds.size, 0)
+
+    const { issue } = rejectionFor(state, messages)
+
+    const context = buildSearchContext(state, messages)
+    const accepted: string[] = []
+    for (const blockId of [...state.prune.messages.blocksById.keys()].sort((a, b) => a - b)) {
+        try {
+            resolveBoundaryIds(context, state, `b${blockId}`, `b${blockId}`)
+        } catch {
+            continue
+        }
+        accepted.push(`b${blockId}`)
+    }
+
+    // Advertised == resolvable, both derived from this payload: b2's anchor is gone.
+    assert.deepEqual(accepted, ["b1", "b3"])
+    assert.equal(refList(issue), "m0001-m0003, b1, b3.")
 })

@@ -1,4 +1,5 @@
 import type { SessionState, WithParts } from "./state"
+import type { Logger } from "./logger"
 import { isIgnoredUserMessage } from "./messages/query"
 
 const MESSAGE_REF_REGEX = /^m(\d{4})$/
@@ -8,6 +9,28 @@ const MESSAGE_ID_TAG_NAME = "dcp-message-id"
 const MESSAGE_REF_WIDTH = 4
 const MESSAGE_REF_MIN_INDEX = 1
 export const MESSAGE_REF_MAX_INDEX = 9999
+
+/**
+ * Loud, greppable marker for alias-space exhaustion, the one condition under which
+ * DCP keeps running without message ids. It appears nowhere else in the repo, so
+ * `grep -r DCP_ALIAS_EXHAUSTION` finds every occurrence in the logs.
+ */
+export const MESSAGE_REF_ALIAS_EXHAUSTION_LOG =
+    "DCP_ALIAS_EXHAUSTION: message id alias space exhausted; continuing without new message ids"
+
+/**
+ * Capacity exhaustion, as opposed to a malformed index: `assignMessageRefs` catches
+ * exactly this type and degrades, while `formatMessageRef` keeps throwing a plain
+ * `Error` for an out-of-range index (a programming error).
+ */
+export class MessageRefCapacityError extends Error {
+    constructor() {
+        super(
+            `Message ID alias capacity exceeded. Cannot allocate more than ${formatMessageRef(MESSAGE_REF_MAX_INDEX)} aliases in this session.`,
+        )
+        this.name = "MessageRefCapacityError"
+    }
+}
 
 export type ParsedBoundaryId =
     | {
@@ -116,11 +139,30 @@ export function formatMessageIdTag(
     return `\n<${MESSAGE_ID_TAG_NAME}${serializedAttributes}>${ref}</${MESSAGE_ID_TAG_NAME}>`
 }
 
-export function assignMessageRefs(state: SessionState, messages: WithParts[]): number {
+/**
+ * Issue the alias the model will use for every new message in this payload, and
+ * return how many were assigned.
+ *
+ * Alias-space exhaustion (`MessageRefCapacityError`) is caught here and degrades
+ * instead of propagating. The transform that calls this still prunes, deduplicates,
+ * injects nudges and commits; only messages that have no alias yet go without one.
+ * Letting the throw escape instead reached the fail-open guard in `lib/hooks.ts`,
+ * which returns before `commitMessages`: the payload shipped unmodified, so one
+ * exhausted session silently lost all of DCP for every later request.
+ *
+ * The refs already issued are left alone and `nextRef` is not rewound - they are
+ * still in `byRawId`/`byRef`, so they still resolve.
+ */
+export function assignMessageRefs(
+    state: SessionState,
+    messages: WithParts[],
+    logger?: Logger,
+): number {
     reconcileMessageRefs(state, messages)
 
     let assigned = 0
     let skippedSubAgentPrompt = false
+    let aliasSpaceExhausted = false
 
     for (const message of messages) {
         if (isIgnoredUserMessage(message)) {
@@ -145,7 +187,30 @@ export function assignMessageRefs(state: SessionState, messages: WithParts[]): n
             continue
         }
 
-        const ref = allocateNextMessageRef(state)
+        if (aliasSpaceExhausted) {
+            continue
+        }
+
+        let ref: string
+        try {
+            ref = allocateNextMessageRef(state)
+        } catch (error) {
+            if (!(error instanceof MessageRefCapacityError)) {
+                throw error
+            }
+
+            // Logged once per payload, not once per refused message: the first
+            // refusal is the signal, every later one is the same condition again.
+            aliasSpaceExhausted = true
+            logger?.error(MESSAGE_REF_ALIAS_EXHAUSTION_LOG, {
+                capacity: MESSAGE_REF_MAX_INDEX,
+                issuedRefs: state.messageIds.byRef.size,
+                firstRefusedMessageId: rawMessageId,
+                error: error.message,
+            })
+            continue
+        }
+
         state.messageIds.byRawId.set(rawMessageId, ref)
         state.messageIds.byRef.set(ref, rawMessageId)
         assigned++
@@ -213,11 +278,14 @@ function reconcileMessageRefs(state: SessionState, messages: WithParts[]): void 
  * The alias space is finite (`MESSAGE_REF_MAX_INDEX` = 9999) and no ref is ever
  * recycled, so a session can hand out at most 9999 refs over its whole lifetime -
  * about 5000 user/assistant turn pairs, because a native compaction burns the refs of
- * the messages it replaces instead of returning them. Past that this throws, and the
- * chat transform fails open without ids for that request. Recycling a burned ref is
- * the bug this design exists to prevent, so the ceiling is a deliberate trade rather
- * than an oversight: lifting it means widening `mNNNN` (and every prompt that
- * documents it), not relaxing monotonicity.
+ * the messages it replaces instead of returning them. Past that this throws
+ * `MessageRefCapacityError`, which `assignMessageRefs` catches: the chat transform
+ * keeps running and only new message ids become unavailable for that session. Before
+ * that catch existed the throw aborted the whole transform through the fail-open
+ * guard in `lib/hooks.ts`, which is the total-disable defect this signature is for.
+ * Recycling a burned ref is the bug this design exists to prevent, so the ceiling is
+ * a deliberate trade rather than an oversight: lifting it means widening `mNNNN` (and
+ * every prompt that documents it), not relaxing monotonicity.
  */
 function allocateNextMessageRef(state: SessionState): string {
     let candidate = Number.isInteger(state.messageIds.nextRef)
@@ -233,7 +301,5 @@ function allocateNextMessageRef(state: SessionState): string {
         candidate++
     }
 
-    throw new Error(
-        `Message ID alias capacity exceeded. Cannot allocate more than ${formatMessageRef(MESSAGE_REF_MAX_INDEX)} aliases in this session.`,
-    )
+    throw new MessageRefCapacityError()
 }

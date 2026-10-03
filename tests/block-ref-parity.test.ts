@@ -447,3 +447,50 @@ test("the manual compress trigger advertises only resolvable blocks", async () =
     assert.match(prompt, /Active compressed blocks in this session: 1 \(b2\)/)
     assert.doesNotMatch(prompt, /b1/)
 })
+
+test("a stale resolvable block id is cleared once no block is left to resolve", () => {
+    const messages = [
+        userMessage("msg-user-1", 1),
+        assistantMessage("msg-assistant-1", 2),
+        compressToolMessage(COMPRESS_MESSAGE_ID, 3),
+    ]
+    const state = createSessionState()
+    // No blocks at all, but a persisted set that still names b3. The set is the only
+    // source of the advertisement, so it must not survive the sync that discovers there
+    // is nothing left to resolve.
+    state.prune.messages.resolvableBlockIds.add(3)
+
+    assert.deepEqual(advertisedRefs(buildCompressedBlockGuidance(state)), ["b3"])
+
+    syncCompressionBlocks(state, new Logger(false), messages)
+
+    assert.equal(state.prune.messages.resolvableBlockIds.size, 0)
+    const guidance = buildCompressedBlockGuidance(state)
+    assert.deepEqual(advertisedRefs(guidance), [])
+    assert.doesNotMatch(guidance, /b3/)
+    assert.deepEqual(resolverAcceptedRefs(state, messages), [])
+    assertGuidanceMatchesResolver(state, messages)
+})
+
+test("a reloaded state drops resolvable block ids whose block did not come back", () => {
+    const messages = [
+        userMessage("msg-user-1", 1),
+        assistantMessage("msg-assistant-1", 2),
+        compressToolMessage(COMPRESS_MESSAGE_ID, 3),
+    ]
+    const state = createSessionState()
+    state.prune.messages.blocksById.set(1, buildBlock(1, "msg-assistant-1"))
+
+    syncCompressionBlocks(state, new Logger(false), messages)
+    assert.deepEqual([...state.prune.messages.resolvableBlockIds], [1])
+
+    const persisted = serializePruneMessagesState(state.prune.messages)
+    // b3 has no block in the document. Trusting the persisted set verbatim would
+    // advertise a ref the resolver rejects for the whole life of the reloaded state.
+    persisted.resolvableBlockIds = [1, 3]
+
+    const reloaded = loadPruneMessagesState(persisted)
+
+    assert.deepEqual([...reloaded.resolvableBlockIds], [1])
+    assert.deepEqual([...reloaded.blocksById.keys()], [1])
+})

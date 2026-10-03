@@ -93,7 +93,7 @@ export async function prepareSession(
         ctx.config.manualMode.enabled,
     )
 
-    assignMessageRefs(state, rawMessages)
+    assignMessageRefs(state, rawMessages, ctx.logger)
 
     deduplicate(state, ctx.logger, ctx.config, rawMessages)
     purgeErrors(state, ctx.logger, ctx.config, rawMessages)

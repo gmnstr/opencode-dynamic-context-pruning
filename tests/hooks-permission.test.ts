@@ -15,6 +15,7 @@ import {
     saveSessionState,
     type WithParts,
 } from "../lib/state"
+import { MESSAGE_REF_ALIAS_EXHAUSTION_LOG, MESSAGE_REF_MAX_INDEX } from "../lib/message-ids"
 
 function buildConfig(permission: "allow" | "ask" | "deny" = "allow"): PluginConfig {
     return {
@@ -218,6 +219,82 @@ test("chat message transform leaves original messages untouched when a late tran
     assert.equal(loggedError, "DCP chat transform failed; continuing without mutations")
 })
 
+test("chat message transform keeps running when message id aliases are exhausted", async () => {
+    const state = createSessionState()
+    // The later request of a session that has burned all 9999 aliases. The user
+    // message carries the session identity and needs an alias it cannot get;
+    // `assistant-1` keeps the alias the model already has.
+    state.sessionId = "session-1"
+    state.initialized = true
+    state.messageIds.byRawId.set("assistant-1", "m0001")
+    state.messageIds.byRef.set("m0001", "assistant-1")
+    state.messageIds.nextRef = MESSAGE_REF_MAX_INDEX + 1
+
+    const logger = new Logger(false)
+    const loggedErrors: string[] = []
+    logger.error = ((message: string) => {
+        loggedErrors.push(message)
+        return Promise.resolve()
+    }) as Logger["error"]
+
+    const userMessage: WithParts = {
+        info: {
+            id: "user-1",
+            role: "user",
+            sessionID: "session-1",
+            agent: "assistant",
+            model: { providerID: "anthropic", modelID: "claude-test" },
+            time: { created: 1 },
+        } as WithParts["info"],
+        parts: [
+            {
+                id: "user-1-part",
+                messageID: "user-1",
+                sessionID: "session-1",
+                type: "text",
+                text: "hello",
+            },
+        ] as WithParts["parts"],
+    }
+    const output = {
+        messages: [
+            userMessage,
+            buildMessage("assistant-1", "assistant", "alpha"),
+            buildMessage("assistant-2", "assistant", "beta"),
+        ],
+    }
+    const handler = createChatMessageTransformHandler(
+        { session: { get: async () => ({}) } } as any,
+        state,
+        logger,
+        buildConfig("allow"),
+        {
+            reload() {},
+            getRuntimePrompts() {
+                return {} as any
+            },
+        } as any,
+        { global: undefined, agents: {} },
+    )
+
+    await handler({}, output)
+
+    // Pre-fix the throw escaped `assignMessageRefs` into the fail-open guard, which
+    // returns before `commitMessages`: no tag reached the payload and the request
+    // shipped unmodified, with prune, deduplication and nudges all skipped.
+    assert.equal(
+        loggedErrors.includes("DCP chat transform failed; continuing without mutations"),
+        false,
+    )
+    assert.equal(loggedErrors.includes(MESSAGE_REF_ALIAS_EXHAUSTION_LOG), true)
+
+    const textOf = (index: number) => (output.messages[index]?.parts[0] as any).text as string
+    assert.match(textOf(1), /<dcp-message-id[^>]*>m0001<\/dcp-message-id>/)
+    // The refused messages are simply left untagged, and nothing reissued m0001.
+    assert.doesNotMatch(textOf(0), /dcp-message-id/)
+    assert.doesNotMatch(textOf(2), /dcp-message-id/)
+    assert.equal(state.messageIds.byRawId.has("assistant-2"), false)
+})
 test("chat message transform leaves original messages untouched when cloning fails", async () => {
     const originalStructuredClone = globalThis.structuredClone
     const state = createSessionState()

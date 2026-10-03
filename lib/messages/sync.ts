@@ -20,6 +20,12 @@ export const syncCompressionBlocks = (
 ): void => {
     const messagesState = state.prune.messages
     if (!messagesState?.blocksById?.size) {
+        // Cleared before the early return, not after it: with no block left there is
+        // nothing a `bN` can resolve to, and the stale set would keep advertising a ref
+        // the resolver rejects - the over-advertisement this sync exists to close. The
+        // set is state, not a value derived on read, so "no blocks" has to be written
+        // into it rather than merely skipped.
+        messagesState?.resolvableBlockIds.clear()
         return
     }
 
@@ -92,9 +98,15 @@ export const syncCompressionBlocks = (
         if (messageIds.has(block.anchorMessageId)) {
             messagesState.activeByAnchorMessageId.set(block.anchorMessageId, block.blockId)
 
-            // Stay in step with buildBoundaryLookup (lib/compress/search.ts): a `bN` ref only
-            // resolves while the anchor message is present and is not an ignored user message.
-            // The raw anchor is only visible here, before prune rewrites the payload.
+            // Mirrors buildBoundaryLookup (lib/compress/search.ts) *within one transform
+            // payload*: a `bN` ref only resolves while the anchor message is present in the
+            // raw array the resolver will look at and is not an ignored user message. The raw
+            // anchor is only visible here, before prune rewrites the payload. The assumption is
+            // that both sides describe that same array - the tool-time resolver re-fetches
+            // client.session.messages, and the compress tool pipeline and `/dcp compress` reach
+            // the guidance without calling this function at all, so the set can be stale until
+            // the next sync. `describeValidRefs` therefore derives its own list from the payload
+            // at hand instead of reading this set.
             const anchorMessage = messagesById.get(block.anchorMessageId)
             if (anchorMessage && !isIgnoredUserMessage(anchorMessage)) {
                 messagesState.resolvableBlockIds.add(block.blockId)
