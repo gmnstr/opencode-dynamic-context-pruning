@@ -4,6 +4,7 @@ import {
     appendGuidanceToDcpTag,
     buildCompressedBlockGuidance,
     renderMessagePriorityGuidance,
+    stripPriorDcpNudges,
 } from "../../prompts/extensions/nudge"
 import type { RuntimePrompts } from "../../prompts/store"
 import type { UserMessage } from "@opencode-ai/sdk/v2"
@@ -211,6 +212,16 @@ function buildMessagePriorityGuidance(
 function injectAnchoredNudge(message: WithParts, nudgeText: string): void {
     if (!nudgeText.trim()) {
         return
+    }
+
+    // Idempotency: drop any prior DCP nudge blocks from this message before
+    // appending the new one. Anchored messages are historical; without this each
+    // nudge pass would leave stale block-state guidance embedded in prior turns
+    // (see stripPriorDcpNudges). Non-text parts are untouched.
+    for (const part of message.parts) {
+        if (part.type === "text" && typeof part.text === "string") {
+            part.text = stripPriorDcpNudges(part.text)
+        }
     }
 
     if (message.info.role === "user") {
