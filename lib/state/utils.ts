@@ -1,5 +1,7 @@
 import type {
     CompressionBlock,
+    MessageIdState,
+    PersistedMessageIds,
     PruneMessagesState,
     PrunedMessageEntry,
     SessionState,
@@ -301,6 +303,65 @@ export function loadPruneMessagesState(
     return state
 }
 
+export function createMessageIdsState(): MessageIdState {
+    return {
+        byRawId: new Map<string, string>(),
+        byRef: new Map<string, string>(),
+        nextRef: 1,
+    }
+}
+
+export function serializeMessageIdsState(messageIds: MessageIdState): PersistedMessageIds {
+    return {
+        byRawId: Object.fromEntries(messageIds.byRawId),
+        byRef: Object.fromEntries(messageIds.byRef),
+        nextRef: messageIds.nextRef,
+    }
+}
+
+/**
+ * Defensive load of the persisted alias space. A missing, non-object or malformed
+ * document degrades to the empty default rather than throwing: defaulting costs the
+ * session its refs, while a throw here would take the whole chat transform with it.
+ *
+ * Junk entries are dropped per entry, the policy `loadPruneMessagesState` already
+ * uses. A ref key that is not `mNNNN` is unreachable anyway - `parseBoundaryId`
+ * rejects it - and `reconcileMessageRefs` (lib/message-ids.ts) drops it on the next
+ * `assignMessageRefs` call.
+ */
+export function loadMessageIdsState(persisted?: PersistedMessageIds): MessageIdState {
+    const state = createMessageIdsState()
+    if (!persisted || typeof persisted !== "object" || Array.isArray(persisted)) {
+        return state
+    }
+
+    loadMessageRefEntries(state.byRawId, persisted.byRawId)
+    loadMessageRefEntries(state.byRef, persisted.byRef)
+
+    if (
+        typeof persisted.nextRef === "number" &&
+        Number.isInteger(persisted.nextRef) &&
+        persisted.nextRef >= 1
+    ) {
+        state.nextRef = persisted.nextRef
+    }
+
+    return state
+}
+
+function loadMessageRefEntries(target: Map<string, string>, source: unknown): void {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+        return
+    }
+
+    for (const [key, value] of Object.entries(source)) {
+        if (key.length === 0 || typeof value !== "string" || value.length === 0) {
+            continue
+        }
+        target.set(key, value)
+    }
+}
+
 export function collectTurnNudgeAnchors(messages: WithParts[]): Set<string> {
     const anchors = new Set<string>()
     let pendingUserMessageId: string | null = null
@@ -350,11 +411,13 @@ export function resetOnCompaction(state: SessionState): void {
     // retained garbage that would otherwise be attached to an unrelated block
     // that happens to reuse the same message/call ids.
     resetCompressionTiming(state)
-    state.messageIds = {
-        byRawId: new Map<string, string>(),
-        byRef: new Map<string, string>(),
-        nextRef: 1,
-    }
+    // `messageIds` is deliberately NOT reset here. Compaction replaces the
+    // conversation, so the refs of the replaced messages can never resolve again -
+    // but those refs were already shown to the model, and handing `m0007` out for a
+    // different message later is exactly the silent misdirection this reset caused.
+    // `nextRef` therefore stays monotonic for the lifetime of the session, and
+    // `assignMessageRefs` (lib/message-ids.ts) reclaims the dead entries without
+    // rewinding it. See the 9999-ref trade-off documented at `allocateNextMessageRef`.
     state.nudges = {
         contextLimitAnchors: new Set<string>(),
         turnNudgeAnchors: new Set<string>(),

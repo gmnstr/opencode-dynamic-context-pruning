@@ -117,6 +117,8 @@ export function formatMessageIdTag(
 }
 
 export function assignMessageRefs(state: SessionState, messages: WithParts[]): number {
+    reconcileMessageRefs(state, messages)
+
     let assigned = 0
     let skippedSubAgentPrompt = false
 
@@ -152,6 +154,71 @@ export function assignMessageRefs(state: SessionState, messages: WithParts[]): n
     return assigned
 }
 
+/**
+ * Drop aliases whose raw message is no longer in the payload, so both maps stay
+ * proportional to the conversation instead of growing for the lifetime of the
+ * session. This is the one place that holds the live message set and the issued refs
+ * at the same time.
+ *
+ * `nextRef` is never lowered by this - it is raised to one past the highest ref about
+ * to be dropped. A ref shown to the model is burned, and `allocateNextMessageRef`
+ * only refuses a ref that is still present in `byRef`, so dropping an entry while
+ * `nextRef` still points below it would put that ref back into circulation. That can
+ * only happen for a persisted document whose `nextRef` disagrees with its maps (a
+ * missing or malformed `nextRef` degrades to 1, see `loadMessageIdsState`); the
+ * floor is what makes "never reissue" unconditional instead of contingent on the
+ * file being well formed.
+ *
+ * Trade-off, stated on purpose: monotonic refs with no reuse spend the finite
+ * 9999-ref space (`MESSAGE_REF_MAX_INDEX`) at one ref per message ever assigned in
+ * the session, so `allocateNextMessageRef` eventually throws. See that function.
+ */
+function reconcileMessageRefs(state: SessionState, messages: WithParts[]): void {
+    const liveRawIds = new Set<string>()
+    for (const message of messages) {
+        const rawMessageId = message.info.id
+        if (typeof rawMessageId === "string" && rawMessageId.length > 0) {
+            liveRawIds.add(rawMessageId)
+        }
+    }
+
+    const { byRawId, byRef } = state.messageIds
+
+    let highestIssued = MESSAGE_REF_MIN_INDEX - 1
+    for (const ref of byRef.keys()) {
+        const index = parseMessageRef(ref)
+        if (index !== null && index > highestIssued) {
+            highestIssued = index
+        }
+    }
+
+    for (const rawMessageId of byRawId.keys()) {
+        if (!liveRawIds.has(rawMessageId)) {
+            byRawId.delete(rawMessageId)
+        }
+    }
+    for (const [ref, rawMessageId] of byRef) {
+        if (byRawId.get(rawMessageId) !== ref) {
+            byRef.delete(ref)
+        }
+    }
+
+    const floor = highestIssued + 1
+    if (state.messageIds.nextRef < floor) {
+        state.messageIds.nextRef = floor
+    }
+}
+
+/**
+ * The alias space is finite (`MESSAGE_REF_MAX_INDEX` = 9999) and no ref is ever
+ * recycled, so a session can hand out at most 9999 refs over its whole lifetime -
+ * about 5000 user/assistant turn pairs, because a native compaction burns the refs of
+ * the messages it replaces instead of returning them. Past that this throws, and the
+ * chat transform fails open without ids for that request. Recycling a burned ref is
+ * the bug this design exists to prevent, so the ceiling is a deliberate trade rather
+ * than an oversight: lifting it means widening `mNNNN` (and every prompt that
+ * documents it), not relaxing monotonicity.
+ */
 function allocateNextMessageRef(state: SessionState): string {
     let candidate = Number.isInteger(state.messageIds.nextRef)
         ? Math.max(MESSAGE_REF_MIN_INDEX, state.messageIds.nextRef)

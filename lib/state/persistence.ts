@@ -8,9 +8,15 @@ import * as fs from "fs/promises"
 import { existsSync } from "fs"
 import { homedir } from "os"
 import { join } from "path"
-import type { CompressionBlock, PrunedMessageEntry, SessionState, SessionStats } from "./types"
+import type {
+    CompressionBlock,
+    PersistedMessageIds,
+    PrunedMessageEntry,
+    SessionState,
+    SessionStats,
+} from "./types"
 import type { Logger } from "../logger"
-import { serializePruneMessagesState } from "./utils"
+import { serializeMessageIdsState, serializePruneMessagesState } from "./utils"
 import type { SessionRegistry } from "./registry"
 
 /** Prune state as stored on disk */
@@ -40,6 +46,8 @@ export interface PersistedSessionState {
     prune: PersistedPrune
     nudges: PersistedNudges
     stats: SessionStats
+    /** Absent from files written before the alias space was persisted. */
+    messageIds?: PersistedMessageIds
     lastUpdated: string
 }
 
@@ -130,6 +138,7 @@ async function writeSessionState(
                 iterationNudgeAnchors: Array.from(sessionState.nudges.iterationNudgeAnchors),
             },
             stats: sessionState.stats,
+            messageIds: serializeMessageIdsState(sessionState.messageIds),
             lastUpdated: new Date().toISOString(),
         }
 

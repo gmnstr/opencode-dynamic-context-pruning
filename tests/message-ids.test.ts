@@ -58,34 +58,41 @@ function buildCompactedMessages(sessionID: string): WithParts[] {
     ]
 }
 
-test("checkSession resets message id aliases after native compaction", async () => {
+test("checkSession keeps message id aliases across native compaction", async () => {
     const sessionID = `ses_message_ids_after_compaction_${Date.now()}`
     const messages = buildCompactedMessages(sessionID)
     const state = createSessionState()
     const logger = new Logger(false)
 
     state.sessionId = sessionID
-    state.messageIds.byRawId.set("old-message-9998", "m9998")
-    state.messageIds.byRawId.set("old-message-9999", "m9999")
-    state.messageIds.byRef.set("m9998", "old-message-9998")
-    state.messageIds.byRef.set("m9999", "old-message-9999")
-    state.messageIds.nextRef = 9999
+    // The session was initialized by an earlier request, so `ensureSessionInitialized`
+    // returns immediately and leaves these refs in place: this is the second request of
+    // a live session, arriving after a native compaction.
+    state.initialized = true
+    // `msg-user-follow-up` is in the post-compaction payload, so it has to keep the
+    // alias the model already knows. `old-message-0998` was replaced by the
+    // compaction summary: its alias is unreachable now but stays burned, so the
+    // summary has to be given one the model has never seen.
+    state.messageIds.byRawId.set("old-message-0998", "m0998")
+    state.messageIds.byRawId.set("msg-user-follow-up", "m0999")
+    state.messageIds.byRef.set("m0998", "old-message-0998")
+    state.messageIds.byRef.set("m0999", "msg-user-follow-up")
+    state.messageIds.nextRef = 1000
 
     await checkSession({} as any, state, logger, messages, false)
 
     assert.equal(state.lastCompaction, 2)
-    assert.equal(state.messageIds.byRawId.size, 0)
-    assert.equal(state.messageIds.byRef.size, 0)
-    assert.equal(state.messageIds.nextRef, 1)
+    assert.equal(state.messageIds.byRawId.get("msg-user-follow-up"), "m0999")
+    assert.equal(state.messageIds.byRef.get("m0999"), "msg-user-follow-up")
+    assert.equal(state.messageIds.nextRef, 1000)
 
     const assigned = assignMessageRefs(state, messages)
 
-    assert.equal(assigned, 2)
-    assert.equal(state.messageIds.byRawId.get("msg-assistant-summary"), "m0001")
-    assert.equal(state.messageIds.byRawId.get("msg-user-follow-up"), "m0002")
-    assert.equal(state.messageIds.byRef.get("m0001"), "msg-assistant-summary")
-    assert.equal(state.messageIds.byRef.get("m0002"), "msg-user-follow-up")
-    assert.equal(state.messageIds.nextRef, 3)
+    assert.equal(assigned, 1)
+    assert.equal(state.messageIds.byRawId.get("msg-user-follow-up"), "m0999")
+    assert.equal(state.messageIds.byRawId.get("msg-assistant-summary"), "m1000")
+    assert.equal(state.messageIds.byRef.has("m0998"), false)
+    assert.equal(state.messageIds.nextRef, 1001)
 })
 
 test("assignMessageRefs throws when alias capacity is exhausted", () => {

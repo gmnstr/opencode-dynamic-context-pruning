@@ -86,6 +86,20 @@ export interface MessageIdState {
     nextRef: number
 }
 
+/**
+ * `MessageIdState` as stored on disk: the maps are serialised as records.
+ *
+ * `nextRef` is the high-water mark of the alias space. It is monotonic for the
+ * lifetime of a session - every `mNNNN` shown to the model is burned, including the
+ * refs of messages a native compaction replaced, because reissuing one silently
+ * points the model at a different message.
+ */
+export interface PersistedMessageIds {
+    byRawId: Record<string, string>
+    byRef: Record<string, string>
+    nextRef: number
+}
+
 export interface Nudges {
     contextLimitAnchors: Set<string>
     turnNudgeAnchors: Set<string>

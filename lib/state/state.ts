@@ -7,7 +7,9 @@ import {
     findLastCompactionTimestamp,
     countTurns,
     resetOnCompaction,
+    createMessageIdsState,
     createPruneMessagesState,
+    loadMessageIdsState,
     loadPruneMessagesState,
     loadPruneMap,
     collectTurnNudgeAnchors,
@@ -108,11 +110,7 @@ export function createSessionState(): SessionState {
         toolParameters: new Map<string, ToolParameterEntry>(),
         subAgentResultCache: new Map<string, string>(),
         toolIdList: [],
-        messageIds: {
-            byRawId: new Map<string, string>(),
-            byRef: new Map<string, string>(),
-            nextRef: 1,
-        },
+        messageIds: createMessageIdsState(),
         lastCompaction: 0,
         currentTurn: 0,
         modelContextLimit: undefined,
@@ -154,11 +152,10 @@ export function resetSessionState(state: SessionState): void {
     state.toolParameters.clear()
     state.subAgentResultCache.clear()
     state.toolIdList = []
-    state.messageIds = {
-        byRawId: new Map<string, string>(),
-        byRef: new Map<string, string>(),
-        nextRef: 1,
-    }
+    // Kept as a reset: ensureSessionInitialized loads the session right after this
+    // and restores what was persisted, including the alias space (see below). With
+    // no file on disk the empty default is the session's state.
+    state.messageIds = createMessageIdsState()
     state.lastCompaction = 0
     state.currentTurn = 0
     state.modelContextLimit = undefined
@@ -214,6 +211,9 @@ export async function ensureSessionInitialized(
         pruneTokenCounter: persisted.stats?.pruneTokenCounter || 0,
         totalPruneTokens: persisted.stats?.totalPruneTokens || 0,
     }
+    // The alias space has to come back with the session: without this the refs the
+    // model was already shown are minted again from m0001 for other messages.
+    state.messageIds = loadMessageIdsState(persisted.messageIds)
 
     const applied = applyPendingCompressionDurations(state)
     if (applied > 0) {
