@@ -31,11 +31,15 @@ function getTriggerPrompt(
     tool: "compress",
     state: SessionState,
     config: PluginConfig,
+    messages: WithParts[],
     userFocus?: string,
 ): string {
     const base = COMPRESS_TRIGGER_PROMPT
+    // `messages` is the fresh session fetch this command made; nothing on this path calls
+    // `syncCompressionBlocks`, so pass it through and let the guidance derive the block
+    // list from the array the resolver will use instead of the carried-over cache.
     const compressedBlockGuidance =
-        config.compress.mode === "message" ? "" : buildCompressedBlockGuidance(state)
+        config.compress.mode === "message" ? "" : buildCompressedBlockGuidance(state, messages)
 
     const sections = [base, compressedBlockGuidance]
     if (userFocus && userFocus.trim().length > 0) {
@@ -85,7 +89,7 @@ export async function handleManualTriggerCommand(
     tool: "compress",
     userFocus?: string,
 ): Promise<string | null> {
-    return getTriggerPrompt(tool, ctx.state, ctx.config, userFocus)
+    return getTriggerPrompt(tool, ctx.state, ctx.config, ctx.messages, userFocus)
 }
 
 export function applyPendingManualTrigger(

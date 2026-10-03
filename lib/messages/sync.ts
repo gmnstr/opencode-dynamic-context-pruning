@@ -92,15 +92,22 @@ export const syncCompressionBlocks = (
         if (messageIds.has(block.anchorMessageId)) {
             messagesState.activeByAnchorMessageId.set(block.anchorMessageId, block.blockId)
 
-            // Mirrors buildBoundaryLookup (lib/compress/search.ts) *within one transform
-            // payload*: a `bN` ref only resolves while the anchor message is present in the
-            // raw array the resolver will look at and is not an ignored user message. The raw
-            // anchor is only visible here, before prune rewrites the payload. The assumption is
-            // that both sides describe that same array - the tool-time resolver re-fetches
-            // client.session.messages, and the compress tool pipeline and `/dcp compress` reach
-            // the guidance without calling this function at all, so the set can be stale until
-            // the next sync. `describeValidRefs` therefore derives its own list from the payload
-            // at hand instead of reading this set.
+            // Captures resolvability for the transform payload: a `bN` ref only resolves
+            // while the anchor message is present in the raw array the resolver will look at
+            // and is not an ignored user message. This has to be recorded here because the
+            // transform is the last point at which the raw anchor is visible - prune rewrites
+            // the payload immediately afterwards, dropping that anchor, so a guidance
+            // renderer reading the post-prune array could no longer see it.
+            //
+            // This set is the *fallback* source for buildCompressedBlockGuidance, not the
+            // only one. Read paths that hold an array the resolver will itself use pass it in
+            // (`/dcp compress` in lib/commands/manual.ts, whose fresh `client.session.messages`
+            // fetch never reaches this sync), and the guidance then derives the list live from
+            // that array with the same predicate - `collectResolvableBlockIds`
+            // (lib/messages/query.ts), shared with buildBoundaryLookup and
+            // `describeValidRefs`. Callers with no array to hand over still read this set.
+            // The tool-time resolver re-fetches client.session.messages, so cross-path
+            // agreement is a property of the array each path describes, not of this cache.
             const anchorMessage = messagesById.get(block.anchorMessageId)
             if (anchorMessage && !isIgnoredUserMessage(anchorMessage)) {
                 messagesState.resolvableBlockIds.add(block.blockId)

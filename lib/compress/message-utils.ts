@@ -1,7 +1,11 @@
 import type { PluginConfig } from "../config"
 import type { SessionState } from "../state"
 import { formatBlockRef, formatMessageRef, parseBoundaryId, parseMessageRef } from "../message-ids"
-import { isIgnoredUserMessage, isProtectedUserMessage } from "../messages/query"
+import {
+    collectResolvableBlockIds,
+    isIgnoredUserMessage,
+    isProtectedUserMessage,
+} from "../messages/query"
 import { resolveAnchorMessageId, resolveBoundaryIds, resolveSelection } from "./search"
 import { COMPRESSED_BLOCK_HEADER } from "./state"
 import type {
@@ -248,24 +252,11 @@ function describeValidRefs(state: SessionState, searchContext: SearchContext): s
 
     // Derived here, not read from `resolvableBlockIds`: that cache is only refreshed by
     // `syncCompressionBlocks`, and this text is also rendered on paths that never call it.
-    // Same predicate as buildBoundaryLookup's summary loop (lib/compress/search.ts).
-    const validBlockIds: number[] = []
-    for (const [blockId, block] of state.prune.messages.blocksById) {
-        if (!block.active) {
-            continue
-        }
-        const anchorMessage = searchContext.rawMessagesById.get(block.anchorMessageId)
-        if (!anchorMessage) {
-            continue
-        }
-        if (isIgnoredUserMessage(anchorMessage)) {
-            continue
-        }
-        if (!searchContext.rawIndexById.has(block.anchorMessageId)) {
-            continue
-        }
-        validBlockIds.push(blockId)
-    }
+    // Shared predicate with buildBoundaryLookup's summary loop (lib/compress/search.ts)
+    // and with the nudge guidance (lib/prompts/extensions/nudge.ts).
+    const validBlockIds: number[] = Array.from(
+        collectResolvableBlockIds(state.prune.messages.blocksById, searchContext.rawMessages),
+    ).sort((a, b) => a - b)
 
     const sections = [renderMessageRefRuns(indices), renderBlockRefs(validBlockIds)].filter(
         (section) => section.length > 0,

@@ -1,7 +1,27 @@
-import type { SessionState } from "../../state"
+import type { SessionState, WithParts } from "../../state"
+import { collectResolvableBlockIds } from "../../messages/query"
 
-export function buildCompressedBlockGuidance(state: SessionState): string {
-    const refs = Array.from(state.prune.messages.resolvableBlockIds)
+/**
+ * `rawMessages` is the array the resolver will actually see. When the caller has it, the
+ * advertised `bN` list is derived live from that array with the same predicate
+ * `buildBoundaryLookup` (lib/compress/search.ts) applies, so the nudge can only name a
+ * block the resolver accepts. That matters on the paths that never call
+ * `syncCompressionBlocks`: `/dcp compress` (lib/commands/manual.ts) loads state and
+ * fetches fresh session messages, so the cached `resolvableBlockIds` set describes a
+ * *different* array.
+ *
+ * When no array is supplied the cached set stays the source, which is what the chat
+ * transform needs: it captures resolvability *before* prune, because prune then rewrites
+ * the payload and the raw anchor is no longer visible in it.
+ */
+export function buildCompressedBlockGuidance(
+    state: SessionState,
+    rawMessages?: WithParts[],
+): string {
+    const resolvableBlockIds = rawMessages
+        ? collectResolvableBlockIds(state.prune.messages.blocksById, rawMessages)
+        : state.prune.messages.resolvableBlockIds
+    const refs = Array.from(resolvableBlockIds)
         .filter((id) => Number.isInteger(id) && id > 0)
         .sort((a, b) => a - b)
         .map((id) => `b${id}`)
