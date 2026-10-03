@@ -42,22 +42,16 @@ export const syncCompressionBlocks = (
     messagesState.activeByAnchorMessageId.clear()
 
     const now = Date.now()
-    const missingOriginBlockIds: number[] = []
     const orderedBlocks = Array.from(messagesState.blocksById.values()).sort(sortBlocksByCreation)
 
     for (const block of orderedBlocks) {
-        const hasOriginMessage =
-            typeof block.compressMessageId === "string" &&
-            block.compressMessageId.length > 0 &&
-            messageIds.has(block.compressMessageId)
-
-        if (!hasOriginMessage) {
-            block.active = false
-            block.deactivatedAt = now
-            block.deactivatedByBlockId = undefined
-            missingOriginBlockIds.push(block.blockId)
-            continue
-        }
+        // NOTE: compressMessageId presence check removed intentionally.
+        // OpenCode compacts old assistant messages including the compress tool-call
+        // message, which would cause the block's origin message to disappear from
+        // the current message list. Deactivating the block on that basis causes
+        // silent summary loss — compressed context silently uncompresses.
+        // The persisted byMessageId index is the authoritative source of truth.
+        // See PR #523 Bug #3 / Issue #537.
 
         if (block.deactivatedByUser) {
             block.active = false
@@ -138,9 +132,8 @@ export const syncCompressionBlocks = (
         }
     }
 
-    if (missingOriginBlockIds.length > 0 || deactivatedCount > 0 || reactivatedCount > 0) {
+    if (deactivatedCount > 0 || reactivatedCount > 0) {
         logger.info("Synced compress block state", {
-            missingOriginCount: missingOriginBlockIds.length,
             deactivatedCount,
             reactivatedCount,
         })
