@@ -1,4 +1,5 @@
 import type { Logger } from "../logger"
+import type { SessionRegistry } from "../state/registry"
 import type { CompressionBlock, PruneMessagesState, SessionState, WithParts } from "../state"
 import { syncCompressionBlocks } from "../messages"
 import { parseBlockRef } from "../message-ids"
@@ -18,6 +19,8 @@ export interface DecompressCommandContext {
     logger: Logger
     sessionId: string
     messages: WithParts[]
+    /** Per-session registry when the command runs on a routed session. */
+    registry?: SessionRegistry
     args: string[]
 }
 
@@ -255,7 +258,7 @@ export async function handleDecompressCommand(ctx: DecompressCommandContext): Pr
         .filter((blockId) => !activeBlockIdsBefore.has(blockId))
         .sort((a, b) => a - b)
 
-    await saveSessionState(state, logger)
+    await saveSessionState(state, logger, undefined, ctx.registry)
 
     const message = formatDecompressMessage(
         target,

@@ -23,26 +23,44 @@ export const checkSession = async (
 ): Promise<void> => {
     const lastUserMessage = getLastUserMessage(messages)
     if (!lastUserMessage) {
+        // Fail open: with no user message this payload carries no identity, and
+        // mutating here would attribute the request to whichever session this
+        // state object happens to belong to.
         return
     }
 
     const lastSessionId = lastUserMessage.info.sessionID
-
-    if (state.sessionId === null || state.sessionId !== lastSessionId) {
-        logger.info(`Session changed: ${state.sessionId} -> ${lastSessionId}`)
-        try {
-            await ensureSessionInitialized(
-                client,
-                state,
-                lastSessionId,
-                logger,
-                messages,
-                manualModeDefault,
-            )
-        } catch (err: any) {
-            logger.error("Failed to initialize session state", { error: err.message })
-        }
+    if (!lastSessionId) {
+        // No identity in the payload: fail open and mutate nothing.
+        return
     }
+
+    if (state.sessionId !== null && state.sessionId !== lastSessionId) {
+        // The routing layer hands over the state owned by this session, so a
+        // mismatch means this payload cannot be attributed safely. Mutate nothing
+        // rather than touching another session's state.
+        logger.debug("Session identity mismatched with state owner; skipping state update", {
+            expected: state.sessionId,
+            received: lastSessionId,
+        })
+        return
+    }
+
+    if (state.sessionId === null) {
+        // Claim the state for this payload before any await, so a concurrent
+        // request for the same session re-enters this entry instead of installing
+        // a second one.
+        state.sessionId = lastSessionId
+    }
+
+    await ensureSessionInitialized(
+        client,
+        state,
+        lastSessionId,
+        logger,
+        messages,
+        manualModeDefault,
+    )
 
     const lastCompactionTimestamp = findLastCompactionTimestamp(messages)
     if (lastCompactionTimestamp > state.lastCompaction) {
@@ -65,6 +83,7 @@ export const checkSession = async (
 export function createSessionState(): SessionState {
     return {
         sessionId: null,
+        initialized: false,
         isSubAgent: false,
         manualMode: false,
         compressPermission: undefined,
@@ -103,6 +122,7 @@ export function createSessionState(): SessionState {
 
 export function resetSessionState(state: SessionState): void {
     state.sessionId = null
+    state.initialized = false
     state.isSubAgent = false
     state.manualMode = false
     state.compressPermission = undefined
@@ -142,7 +162,7 @@ export async function ensureSessionInitialized(
     messages: WithParts[],
     manualModeEnabled: boolean,
 ): Promise<void> {
-    if (state.sessionId === sessionId) {
+    if (state.sessionId === sessionId && state.initialized) {
         return
     }
 
@@ -163,6 +183,9 @@ export async function ensureSessionInitialized(
 
     const persisted = await loadSessionState(sessionId, logger)
     if (persisted === null) {
+        // Nothing on disk: the reset state is the session's state, and marking it
+        // initialized keeps later requests from re-resetting it.
+        state.initialized = true
         return
     }
 
@@ -185,4 +208,6 @@ export async function ensureSessionInitialized(
     if (applied > 0) {
         await saveSessionState(state, logger)
     }
+
+    state.initialized = true
 }

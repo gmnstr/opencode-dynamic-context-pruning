@@ -12,6 +12,7 @@ import {
     messageHasCompress,
 } from "../query"
 import { saveSessionState } from "../../state/persistence"
+import type { SessionRegistry } from "../../state/registry"
 import {
     appendToTextPart,
     appendToLastTextPart,
@@ -37,6 +38,7 @@ export const injectCompressNudges = (
     messages: WithParts[],
     prompts: RuntimePrompts,
     compressionPriorities?: CompressionPriorityMap,
+    registry?: SessionRegistry,
 ): void => {
     if (compressPermission(state, config) === "deny") {
         return
@@ -138,7 +140,7 @@ export const injectCompressNudges = (
     applyAnchoredNudges(state, config, messages, prompts, compressionPriorities)
 
     if (anchorsChanged) {
-        void saveSessionState(state, logger)
+        void saveSessionState(state, logger, undefined, registry)
     }
 }
 

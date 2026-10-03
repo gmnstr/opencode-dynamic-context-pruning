@@ -184,7 +184,7 @@ test("compression notifications increment by tool call across range and message 
 
     const rangeTool = createCompressRangeTool({
         client,
-        state,
+        source: state,
         logger,
         config: rangeConfig,
         prompts: {
@@ -218,7 +218,7 @@ test("compression notifications increment by tool call across range and message 
 
     const messageTool = createCompressMessageTool({
         client,
-        state,
+        source: state,
         logger,
         config: messageConfig,
         prompts: {
@@ -276,7 +276,7 @@ test("decompress groups batched message compressions by tool call", async () => 
 
     const tool = createCompressMessageTool({
         client,
-        state,
+        source: state,
         logger,
         config: buildConfig("message"),
         prompts: {
@@ -376,7 +376,7 @@ test("decompress keeps batched ranges individually restorable", async () => {
 
     const tool = createCompressRangeTool({
         client,
-        state,
+        source: state,
         logger,
         config: buildConfig("range"),
         prompts: {

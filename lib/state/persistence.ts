@@ -11,6 +11,7 @@ import { join } from "path"
 import type { CompressionBlock, PrunedMessageEntry, SessionState, SessionStats } from "./types"
 import type { Logger } from "../logger"
 import { serializePruneMessagesState } from "./utils"
+import type { SessionRegistry } from "./registry"
 
 /** Prune state as stored on disk */
 export interface PersistedPruneMessagesState {
@@ -55,7 +56,7 @@ async function ensureStorageDir(): Promise<void> {
     }
 }
 
-function getSessionFilePath(sessionId: string): string {
+export function getSessionFilePath(sessionId: string): string {
     return join(STORAGE_DIR, `${sessionId}.json`)
 }
 
@@ -77,6 +78,26 @@ async function writePersistedSessionState(
 }
 
 export async function saveSessionState(
+    sessionState: SessionState,
+    logger: Logger,
+    sessionName?: string,
+    registry?: SessionRegistry,
+): Promise<void> {
+    // Serialize concurrent saves for one session: without this, two saves
+    // interleaving across their awaits can write a stale snapshot last. A
+    // registry-routed save joins that session's queue; a save issued from code
+    // already running in that session's queue slot runs inline in the slot it
+    // already holds (see SessionRegistry.run), so an operation can await a save
+    // without waiting on its own queue slot.
+    if (registry && sessionState.sessionId) {
+        const sessionId = sessionState.sessionId
+        return registry.run(sessionId, () => writeSessionState(sessionState, logger, sessionName))
+    }
+
+    return writeSessionState(sessionState, logger, sessionName)
+}
+
+async function writeSessionState(
     sessionState: SessionState,
     logger: Logger,
     sessionName?: string,

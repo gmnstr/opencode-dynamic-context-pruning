@@ -8,6 +8,7 @@
  */
 
 import type { Logger } from "../logger"
+import type { SessionRegistry } from "../state/registry"
 import type { SessionState, WithParts, ToolParameterEntry } from "../state"
 import type { PluginConfig } from "../config"
 import { sendIgnoredMessage } from "../ui/notification"
@@ -31,6 +32,8 @@ export interface SweepCommandContext {
     logger: Logger
     sessionId: string
     messages: WithParts[]
+    /** Per-session registry when the command runs on a routed session. */
+    registry?: SessionRegistry
     args: string[]
     workingDirectory: string
 }
@@ -240,7 +243,7 @@ export async function handleSweepCommand(ctx: SweepCommandContext): Promise<void
     }
 
     // Persist state
-    saveSessionState(state, logger).catch((err) =>
+    saveSessionState(state, logger, undefined, ctx.registry).catch((err) =>
         logger.error("Failed to persist state after sweep", { error: err.message }),
     )
 

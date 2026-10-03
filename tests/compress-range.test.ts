@@ -141,7 +141,7 @@ test("compress range rebuilds subagent message refs after session state was rese
                 get: async () => ({ data: { parentID: "ses_parent" } }),
             },
         },
-        state,
+        source: state,
         logger,
         config: buildConfig(),
         prompts: {
@@ -226,7 +226,7 @@ test("compress range mode appends protected prompt info", async () => {
                 get: async () => ({ data: { parentID: null } }),
             },
         },
-        state,
+        source: state,
         logger,
         config,
         prompts: {
@@ -286,7 +286,7 @@ test("compress range mode batches multiple ranges into one notification", async 
                 },
             },
         },
-        state,
+        source: state,
         logger,
         config,
         prompts: {
@@ -343,7 +343,7 @@ test("compress range mode rejects overlapping batched ranges", async () => {
                 get: async () => ({ data: { parentID: "ses_parent" } }),
             },
         },
-        state,
+        source: state,
         logger,
         config: buildConfig(),
         prompts: {

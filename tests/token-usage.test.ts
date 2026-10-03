@@ -230,7 +230,9 @@ test("isContextOverLimits ignores stale summary totals and resumes with fresh re
     assert.equal(underLimit.overMinLimit, false)
 
     messages.push(buildPostCompactionAssistantMessage())
-    const freshReportedTotal = 2400 + 600 + 150 + 300
+    // cache.read (300) is already counted inside input (2400) on AI SDK v6+, so
+    // getCurrentTokenUsage does not add it again. See lib/token-utils.ts.
+    const freshReportedTotal = 2400 + 600 + 150
 
     assert.equal(getCurrentTokenUsage(state, messages), freshReportedTotal)
 
@@ -256,7 +258,9 @@ test("isContextOverLimits extends the max threshold by active summary tokens", (
     state.prune.messages.blocksById.set(7, createActiveBlock(7, storedSummary, 1000))
     state.prune.messages.activeBlockIds.add(7)
 
-    const freshReportedTotal = 2400 + 600 + 150 + 300
+    // cache.read (300) is already counted inside input (2400) on AI SDK v6+, so
+    // getCurrentTokenUsage does not add it again. See lib/token-utils.ts.
+    const freshReportedTotal = 2400 + 600 + 150
 
     const underExtendedLimit = isContextOverLimits(
         buildConfig(freshReportedTotal - 1, 1),
@@ -290,7 +294,9 @@ test("isContextOverLimits does not extend the max threshold when summaryBuffer i
     state.prune.messages.blocksById.set(7, createActiveBlock(7, storedSummary, 1000))
     state.prune.messages.activeBlockIds.add(7)
 
-    const freshReportedTotal = 2400 + 600 + 150 + 300
+    // cache.read (300) is already counted inside input (2400) on AI SDK v6+, so
+    // getCurrentTokenUsage does not add it again. See lib/token-utils.ts.
+    const freshReportedTotal = 2400 + 600 + 150
     const config = buildConfig(freshReportedTotal - 1, 1)
     config.compress.summaryBuffer = false
 

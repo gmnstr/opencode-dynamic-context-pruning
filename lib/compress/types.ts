@@ -2,10 +2,11 @@ import type { PluginConfig } from "../config"
 import type { Logger } from "../logger"
 import type { PromptStore } from "../prompts/store"
 import type { CompressionBlock, CompressionMode, SessionState, WithParts } from "../state"
+import type { SessionSource } from "../state/registry"
 
 export interface ToolContext {
     client: any
-    state: SessionState
+    source: SessionSource
     logger: Logger
     config: PluginConfig
     prompts: PromptStore

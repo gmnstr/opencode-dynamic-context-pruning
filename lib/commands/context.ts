@@ -41,6 +41,7 @@
  */
 
 import type { Logger } from "../logger"
+import type { SessionRegistry } from "../state/registry"
 import type { SessionState, WithParts } from "../state"
 import { sendIgnoredMessage } from "../ui/notification"
 import { formatTokenCount } from "../ui/utils"
@@ -52,6 +53,8 @@ import type { AssistantMessage, TextPart, ToolPart } from "@opencode-ai/sdk/v2"
 export interface ContextCommandContext {
     client: any
     state: SessionState
+    /** Per-session registry when the command runs on a routed session. */
+    registry?: SessionRegistry
     logger: Logger
     sessionId: string
     messages: WithParts[]

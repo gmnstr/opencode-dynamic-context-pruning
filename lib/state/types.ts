@@ -92,6 +92,8 @@ export interface Nudges {
 
 export interface SessionState {
     sessionId: string | null
+    /** Session state has been fully installed for `sessionId`. */
+    initialized?: boolean
     isSubAgent: boolean
     manualMode: false | "active" | "compress-pending"
     compressPermission: "ask" | "allow" | "deny" | undefined
